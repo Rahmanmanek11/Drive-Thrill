@@ -1,6 +1,6 @@
 // Service worker sederhana: cache shell aplikasi agar bisa dibuka cepat / dipasang di HP.
-const CACHE = "driver-ojol-v4";
-const SHELL = ["./", "./index.html", "./config.js", "./manifest.webmanifest", "./icon.svg", "./iconv2-192.png", "./iconv2-512.png"];
+const CACHE = "driver-ojol-v5";
+const SHELL = ["./", "./index.html", "./config.js", "./manifest.webmanifest", "./icon.svg", "./iconv3-192.png", "./iconv3-512.png"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

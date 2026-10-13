@@ -106,6 +106,17 @@ nav.bottom button.on{color:var(--g)}
 #toast.show{opacity:1}
 .banner{background:#fef3c7;color:#92400e;padding:10px 14px;font-size:13px;font-weight:600}
 .lf-me{background:#2563eb;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 6px rgba(37,99,235,.25)}
+
+/* ---------- TOP UP ---------- */
+#tuModal{position:fixed;inset:0;z-index:2500;background:rgba(15,23,42,.7);display:flex;align-items:flex-end;justify-content:center}
+#tuBody{background:#fff;width:100%;max-width:480px;max-height:94%;overflow:auto;border-radius:20px 20px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+#tuBody h3{margin:0 0 6px;font-size:18px;text-align:center}
+#tuBody input{width:100%;padding:13px;border:1.5px solid var(--line);border-radius:12px;font-size:16px;margin-top:8px}
+.tuChips{display:flex;flex-wrap:wrap;gap:6px}
+.tuChips button{flex:1 0 30%;padding:10px 4px;border-radius:10px;background:#f1f5f9;font-weight:700;font-size:13px}
+.tuTimer{text-align:center;font-size:34px;font-weight:800;color:var(--g);font-variant-numeric:tabular-nums;margin:4px 0 8px}
+.tuTimer.warn{color:var(--red)}
+.tuTotal{text-align:center;font-size:30px;font-weight:800;margin:10px 0 2px}
 </style>
 </head>
 <body>
@@ -204,10 +215,13 @@ nav.bottom button.on{color:var(--g)}
   </div>
 </div>
 
+<div id="tuModal" class="hidden"><div id="tuBody"></div></div>
+
 <div id="toast"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="config.js"></script>
 <script>
 /* =====================================================================
@@ -615,7 +629,7 @@ async function loadWallet() {
   const box = $("walletBox"); await reloadDriver();
   const { data } = await sb.from("wallet_tx").select("*").eq("driver_id", S.user.id).order("created_at", { ascending: false }).limit(50);
   box.innerHTML = `<div class="card2"><small style="color:var(--muted)">Saldo deposit</small><div class="big ${S.driver.balance < 0 ? "minus" : ""}">${rp(S.driver.balance)}</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:4px">Komisi dipotong otomatis dari saldo setiap order selesai. Untuk top up, hubungi admin. Batas minimum agar bisa online: ${rp(S.settings.min_balance ?? -50000)}.</div></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Komisi dipotong otomatis dari saldo setiap order selesai. Batas minimum agar bisa online: ${rp(S.settings.min_balance ?? -50000)}.</div><button class="btn" onclick="openTopup()">➕ Top up saldo via QRIS</button></div>
     <div class="card2"><b>Mutasi terakhir</b>${(data || []).length ? (data || []).map((t) => `<div class="li"><div>${t.type === "commission" ? "Komisi order" : t.type === "topup" ? "Top up saldo" : "Penyesuaian"}<small>${fmtTime(t.created_at)}${t.note ? " · " + esc(t.note) : ""}</small></div><span class="${t.amount >= 0 ? "plus" : "minus"}">${t.amount >= 0 ? "+" : ""}${rp(t.amount)}</span></div>`).join("") : '<div class="empty">Belum ada transaksi.</div>'}</div>`;
 }
 function renderProfile() {
@@ -632,6 +646,151 @@ function renderProfile() {
       <div class="kv"><span>Bergabung</span><b>${fmtTime(d.created_at)}</b></div></div>
     <button class="btn red" onclick="logout()">Keluar</button>`;
 }
+
+/* ---------- TOP UP SALDO VIA QRIS ---------- */
+const TU = { req: null, end: 0, timer: null, poll: null, state: "idle", qris: null };
+function crc16(s) {
+  let c = 0xFFFF;
+  for (let i = 0; i < s.length; i++) { c ^= s.charCodeAt(i) << 8; for (let j = 0; j < 8; j++) c = (c & 0x8000) ? ((c << 1) ^ 0x1021) & 0xFFFF : (c << 1) & 0xFFFF; }
+  return c.toString(16).toUpperCase().padStart(4, "0");
+}
+function buildDynQris(st, amount) {
+  const items = []; let i = 0;
+  while (i < st.length) { const tag = st.substr(i, 2), len = parseInt(st.substr(i + 2, 2), 10); items.push([tag, st.substr(i + 4, len)]); i += 4 + len; }
+  let out = "";
+  for (const [t, v0] of items) {
+    if (t === "63" || t === "54") continue;
+    const v = t === "01" ? "12" : v0;
+    out += t + String(v.length).padStart(2, "0") + v;
+    if (t === "53") { const a = String(amount); out += "54" + String(a.length).padStart(2, "0") + a; }
+  }
+  out += "6304";
+  return out + crc16(out);
+}
+function tuClose() { $("tuModal").classList.add("hidden"); }
+function tuStopTimers() { clearInterval(TU.timer); clearInterval(TU.poll); TU.timer = TU.poll = null; }
+function openTopup() {
+  $("tuModal").classList.remove("hidden");
+  if (TU.req && TU.state === "waiting" && Date.now() < TU.end) return tuShowQR();
+  tuPicker();
+}
+function tuPicker() {
+  TU.state = "idle";
+  $("tuBody").innerHTML = `<h3>Top up saldo</h3>
+    <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Pilih nominal, lalu bayar dengan QRIS (DANA, GoPay, OVO, m-banking, dll). Saldo masuk otomatis.</div>
+    <div class="tuChips">${[20000, 50000, 100000, 200000, 500000].map((n) => `<button onclick="$('tuAmt').value=${n}">${rp(n)}</button>`).join("")}</div>
+    <input id="tuAmt" type="number" inputmode="numeric" placeholder="Atau ketik nominal (min. Rp 10.000)">
+    <button class="btn" id="tuGo" onclick="startTopup()">Buat QR pembayaran</button>
+    <button class="btn gray" onclick="tuClose()">Tutup</button>`;
+}
+async function startTopup() {
+  const amt = Math.round(Number($("tuAmt").value));
+  if (!amt || amt < 10000) return toast("Minimal top up Rp 10.000");
+  $("tuGo").disabled = true; $("tuGo").textContent = "Membuat QR…";
+  try {
+    if (!TU.qris) {
+      const { data: cfg, error: ce } = await sb.from("topup_config").select("qris_payload").eq("id", 1).single();
+      if (ce || !cfg) throw new Error("Top up belum diaktifkan admin (jalankan patch-topup.sql)");
+      TU.qris = cfg.qris_payload;
+    }
+    const { data, error } = await sb.rpc("create_topup", { p_amount: amt });
+    if (error) throw new Error(error.message);
+    if (!data.ok) throw new Error(data.msg);
+    TU.req = data; TU.end = Date.now() + data.seconds * 1000; TU.state = "waiting";
+    TU.payload = buildDynQris(TU.qris, data.total);
+    tuShowQR();
+  } catch (e) {
+    toast("Gagal: " + e.message, 5000);
+    if ($("tuGo")) { $("tuGo").disabled = false; $("tuGo").textContent = "Buat QR pembayaran"; }
+  }
+}
+function tuDrawQR(canvas, size, withText) {
+  const q = qrcode(0, "M"); q.addData(TU.payload); q.make();
+  const n = q.getModuleCount(), pad = withText ? 40 : 0, top = withText ? 110 : 0, bot = withText ? 90 : 0;
+  const cell = Math.floor(size / (n + 8)), qs = cell * (n + 8);
+  canvas.width = qs + pad * 2; canvas.height = qs + top + bot;
+  const x = canvas.getContext("2d");
+  x.fillStyle = "#fff"; x.fillRect(0, 0, canvas.width, canvas.height);
+  x.fillStyle = "#000";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) x.fillRect(pad + (c + 4) * cell, top + (r + 4) * cell, cell, cell);
+  if (withText) {
+    x.fillStyle = "#0f172a"; x.textAlign = "center";
+    x.font = "bold 30px sans-serif"; x.fillText("Top up saldo driver", canvas.width / 2, 48);
+    x.font = "bold 40px sans-serif"; x.fillText(rp(TU.req.total), canvas.width / 2, 98);
+    x.font = "24px sans-serif"; x.fillStyle = "#475569";
+    x.fillText("Bayar TEPAT " + rp(TU.req.total) + " (termasuk kode unik)", canvas.width / 2, top + qs + 36);
+    x.fillText("Berlaku sampai " + new Date(TU.end).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }), canvas.width / 2, top + qs + 70);
+  }
+}
+function tuShowQR() {
+  const r = TU.req;
+  $("tuBody").innerHTML = `<h3>Scan & bayar</h3>
+    <div class="tuTimer" id="tuTimer">05:00</div>
+    <div style="text-align:center"><canvas id="tuCanvas" style="width:100%;max-width:300px;border:1px solid var(--line);border-radius:12px"></canvas></div>
+    <div class="tuTotal">${rp(r.total)}</div>
+    <div style="text-align:center;font-size:13px;color:var(--muted)">Bayar <b>tepat ${rp(r.total)}</b> (top up ${rp(r.base)} + kode unik ${r.code}).<br>Nominal harus sama persis agar saldo masuk otomatis.</div>
+    <div class="row" style="margin-top:10px"><button class="btn sm gray" onclick="tuDownload()">⬇ Unduh QR</button><button class="btn sm gray" onclick="tuCopy()">📋 Salin nominal</button></div>
+    <div id="tuMsg" style="text-align:center;margin-top:10px;font-size:14px;color:var(--muted)">⏳ Menunggu pembayaran…</div>
+    <button class="btn red" id="tuCancel" onclick="tuCancel()">Batalkan</button>
+    <button class="btn gray" onclick="tuClose()">Sembunyikan (tetap menunggu)</button>`;
+  tuDrawQR($("tuCanvas"), 600, false);
+  tuStopTimers();
+  const tick = () => {
+    const s = Math.max(0, Math.round((TU.end - Date.now()) / 1000));
+    const el = $("tuTimer"); if (!el) return;
+    el.textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+    el.classList.toggle("warn", s <= 60);
+    if (s <= 0 && TU.state === "waiting") tuExpired();
+  };
+  tick(); TU.timer = setInterval(tick, 1000);
+  TU.poll = setInterval(tuCheck, 3000);
+}
+async function tuCheck() {
+  if (!TU.req || TU.state !== "waiting" && TU.state !== "expired") return;
+  const { data } = await sb.from("topup_requests").select("status").eq("id", TU.req.id).single();
+  if (!data) return;
+  if (data.status === "paid") {
+    TU.state = "paid"; tuStopTimers();
+    $("tuBody").innerHTML = `<div style="text-align:center;padding:10px 0"><div style="font-size:64px">✅</div><h3>Top up berhasil</h3>
+      <div class="big" style="color:var(--g)">+${rp(TU.req.total)}</div><div style="color:var(--muted);margin-top:6px">Saldo sudah ditambahkan.</div></div>
+      <button class="btn" onclick="tuClose()">Selesai</button>`;
+    TU.req = null; await reloadDriver(); if ($("pg-wallet").classList.contains("on")) loadWallet();
+  } else if (data.status === "review") {
+    TU.state = "review"; tuStopTimers();
+    $("tuBody").innerHTML = `<div style="text-align:center;padding:10px 0"><div style="font-size:56px">🕓</div><h3>Pembayaran terdeteksi terlambat</h3>
+      <div style="color:var(--muted)">Pembayaran ${rp(TU.req.total)} masuk setelah QR kedaluwarsa. Admin akan memeriksa dan menambahkan saldo Anda.</div></div>
+      <button class="btn" onclick="tuClose()">Mengerti</button>`;
+    TU.req = null;
+  } else if (data.status === "cancelled" || data.status === "rejected") {
+    TU.state = "idle"; tuStopTimers(); TU.req = null; tuPicker();
+  }
+}
+function tuExpired() {
+  TU.state = "expired"; clearInterval(TU.timer); sb.rpc("expire_topups");
+  const m = $("tuMsg"); if (m) m.innerHTML = '<b style="color:var(--red)">Waktu habis. Jangan bayar QR ini lagi.</b>';
+  const c = $("tuCancel"); if (c) { c.textContent = "Buat QR baru"; c.className = "btn"; c.onclick = () => { TU.req = null; TU.state = "idle"; tuStopTimers(); tuPicker(); }; }
+  // polling tetap jalan ~60 dtk lagi untuk menangkap pembayaran yang hampir terlambat
+  setTimeout(() => { if (TU.state === "expired") tuStopTimers(); }, 65000);
+}
+async function tuCancel() {
+  if (!TU.req) return tuPicker();
+  if (!confirm("Batalkan QR ini? Jika Anda sudah membayar, JANGAN dibatalkan.")) return;
+  await sb.rpc("cancel_topup", { p_id: TU.req.id });
+  TU.req = null; TU.state = "idle"; tuStopTimers(); tuPicker();
+}
+function tuDownload() {
+  const c = document.createElement("canvas"); tuDrawQR(c, 600, true);
+  c.toBlob((b) => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(b);
+    a.download = "qris-topup-" + TU.req.total + ".png"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  }, "image/png");
+}
+function tuCopy() {
+  const t = String(TU.req.total);
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Nominal disalin: " + t), () => toast("Nominal: " + t));
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") tuCheck(); });
 
 /* ---------- START ---------- */
 sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") { $("app").classList.add("hidden"); $("auth").classList.remove("hidden"); } });

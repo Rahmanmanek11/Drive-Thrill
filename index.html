@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#16a34a">
-<title>Drive Thrill Driver</title>
+<title>Thrill Driver</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="iconv3-192.png">
 <link rel="apple-touch-icon" href="iconv3-192.png">
@@ -135,8 +135,8 @@ nav.bottom button.on{color:var(--g)}
 <!-- ================= AUTH ================= -->
 <section id="auth" class="hidden">
   <div class="brand">
-    <img src="icon.svg" alt="">
-    <h1>Driver Ojol</h1>
+    <img src="iconv3-192.png" alt="">
+    <h1>Thrill Driver</h1>
     <p>Aplikasi mitra pengemudi</p>
   </div>
   <div class="box">
@@ -325,7 +325,7 @@ function beep() {
   if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 500]);
 }
 function notifyBrowser(title, body) {
-  try { if ("Notification" in window && Notification.permission === "granted") new Notification(title, { body, icon: "icon.svg", tag: "ojol-order", renotify: true }); } catch (e) {}
+  try { if ("Notification" in window && Notification.permission === "granted") new Notification(title, { body, icon: "iconv3-192.png", tag: "ojol-order", renotify: true }); } catch (e) {}
 }
 
 /* ---------- AUTH ---------- */

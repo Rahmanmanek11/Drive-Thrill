@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.drivethrill.twa",
+        "sha256_cert_fingerprints": ["14:E0:39:7C:9E:03:EA:D4:71:03:1F:1B:BB:53:C7:2C:81:69:C6:7B:09:40:DF:49:2B:FF:D9:F4:4E:D6:14:F1"]
+      }
+    }]

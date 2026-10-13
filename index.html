@@ -367,7 +367,7 @@ function refreshHeader() {
   else if (isSusp(d)) suspTick();
   else if (!d.approved) setBanner(docsMsg() || "⏳ Akun menunggu persetujuan admin. Anda belum bisa online.");
   else if (docsMsg()) setBanner(docsMsg());
-  else if (d.balance < (S.settings.min_balance ?? -50000)) setBanner("⚠️ Saldo deposit kurang. Silakan top up di tab Dompet.");
+  else if (d.balance < (S.settings.min_balance ?? 10000)) setBanner("⚠️ Saldo minimal " + rp(S.settings.min_balance ?? 10000) + " untuk menerima order. Silakan top up di tab Dompet.");
   else setBanner("");
   const idle = !S.order;
   $("idleSheet").classList.toggle("hidden", !idle);
@@ -644,7 +644,7 @@ async function loadWallet() {
   const box = $("walletBox"); await reloadDriver();
   const { data } = await sb.from("wallet_tx").select("*").eq("driver_id", S.user.id).order("created_at", { ascending: false }).limit(50);
   box.innerHTML = `<div class="card2"><small style="color:var(--muted)">Saldo deposit</small><div class="big ${S.driver.balance < 0 ? "minus" : ""}">${rp(S.driver.balance)}</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:4px">Komisi dipotong otomatis dari saldo setiap order selesai. Batas minimum agar bisa online: ${rp(S.settings.min_balance ?? -50000)}.</div><button class="btn" onclick="openTopup()">➕ Top up saldo via QRIS</button></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Komisi dipotong otomatis dari saldo setiap order selesai. Saldo minimal <b>${rp(S.settings.min_balance ?? 10000)}</b> agar bisa online. Saldo tidak boleh minus: order yang komisinya lebih besar dari saldo Anda tidak akan ditawarkan, jadi top up lebih besar untuk jarak jauh.</div><button class="btn" onclick="openTopup()">➕ Top up saldo via QRIS</button></div>
     <div class="card2"><b>Mutasi terakhir</b>${(data || []).length ? (data || []).map((t) => `<div class="li"><div>${t.type === "commission" ? "Komisi order" : t.type === "topup" ? "Top up saldo" : "Penyesuaian"}<small>${fmtTime(t.created_at)}${t.note ? " · " + esc(t.note) : ""}</small></div><span class="${t.amount >= 0 ? "plus" : "minus"}">${t.amount >= 0 ? "+" : ""}${rp(t.amount)}</span></div>`).join("") : '<div class="empty">Belum ada transaksi.</div>'}</div>`;
 }
 function renderProfile() {

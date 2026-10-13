@@ -148,6 +148,26 @@ nav.bottom button.on{color:var(--g)}
       <label>Email</label><input id="lEmail" type="email" autocomplete="email" required>
       <label>Kata sandi</label><input id="lPass" type="password" autocomplete="current-password" required>
       <button class="btn" id="btnLogin">Masuk</button>
+      <div style="text-align:center;margin-top:12px"><a href="#" onclick="forgotOpen();return false" style="color:var(--g2);font-weight:600;font-size:14px">Lupa kata sandi?</a></div>
+    </form>
+    <form id="formForgot" class="hidden" onsubmit="return false">
+      <h3 style="margin:0 0 6px">Lupa kata sandi</h3>
+      <div id="fgStep1">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Masukkan email atau nomor HP/WhatsApp yang terdaftar. Admin akan mengirim kode 6 digit ke WhatsApp Anda.</div>
+        <label>Email atau nomor HP</label><input id="fgId" autocomplete="username" placeholder="email@contoh.com atau 08xxxxxxxxxx">
+        <button class="btn" id="fgReq" onclick="forgotRequest()">Minta kode</button>
+      </div>
+      <div id="fgStep2" class="hidden">
+        <div style="background:#ecfdf5;border-radius:12px;padding:10px;font-size:13px;color:#166534;margin-bottom:6px">
+          ✅ Permintaan terkirim. Admin akan mengirim kode lewat WhatsApp dari nomor <b id="fgAdmin"></b> ke nomor HP yang terdaftar. Abaikan pesan dari nomor lain. Biasanya beberapa menit; kode berlaku 10 menit.</div>
+        <label>Kode 6 digit dari WhatsApp</label><input id="fgOtp" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456">
+        <label>Kata sandi baru (min. 6 karakter)</label><input id="fgPass" type="password" minlength="6" autocomplete="new-password">
+        <button class="btn" id="fgGo" onclick="forgotVerify()">Ganti kata sandi</button>
+        <div class="row" style="margin-top:10px;font-size:13px">
+          <a href="#" id="fgResend" onclick="forgotRequest(true);return false" style="color:var(--g2);font-weight:600">Kirim ulang kode</a>
+          <a id="fgWa" target="_blank" rel="noopener" style="color:var(--g2);font-weight:600;text-align:right">Chat admin</a></div>
+      </div>
+      <div style="text-align:center;margin-top:14px"><a href="#" onclick="forgotClose();return false" style="color:var(--muted);font-size:14px">← Kembali masuk</a></div>
     </form>
     <form id="formReg" class="hidden" onsubmit="return doRegister(event)">
       <label>Nama lengkap</label><input id="rName" required>
@@ -274,6 +294,7 @@ function toast(msg, ms = 2800) {
 function authTab(w) {
   $("tabLogin").classList.toggle("on", w === "login"); $("tabReg").classList.toggle("on", w === "reg");
   $("formLogin").classList.toggle("hidden", w !== "login"); $("formReg").classList.toggle("hidden", w !== "reg");
+  $("formForgot").classList.add("hidden"); document.querySelector(".tabs2").classList.remove("hidden");
   $("authErr").textContent = "";
 }
 function showTab(t) {
@@ -1023,6 +1044,42 @@ async function doDestChange() {
     toast(data.flagged ? "Titik antar diubah. Perubahan ini akan ditinjau admin." : "Titik antar diubah.", 5000);
     await restoreActiveOrder(); if (S.order) drawOrderOnMap(S.order);
   } catch (e) { toast("Gagal: " + e.message, 6000); $("dcGo").disabled = false; $("dcGo").textContent = "Gunakan lokasi saya sekarang"; }
+}
+
+/* ---------- LUPA KATA SANDI (OTP lewat WhatsApp admin) ---------- */
+const ADMIN_WA = "+62 815-2586-0936";
+function forgotOpen() {
+  $("authErr").textContent = ""; $("authErr").style.color = "";
+  $("formLogin").classList.add("hidden"); $("formReg").classList.add("hidden"); document.querySelector(".tabs2").classList.add("hidden");
+  $("formForgot").classList.remove("hidden"); $("fgStep1").classList.remove("hidden"); $("fgStep2").classList.add("hidden");
+  $("fgId").value = $("lEmail").value.trim();
+  $("fgAdmin").textContent = ADMIN_WA;
+  $("fgWa").href = "https://wa.me/" + ADMIN_WA.replace(/\D/g, "");
+}
+function forgotClose() { authTab("login"); }
+async function forgotRequest(again) {
+  const id = $("fgId").value.trim(); $("authErr").style.color = "";
+  if (!id) { $("authErr").textContent = "Isi email atau nomor HP terlebih dulu"; return; }
+  $("authErr").textContent = ""; const b = $("fgReq"); b.disabled = true;
+  const { error } = await sb.rpc("request_password_reset", { p_identifier: id });
+  b.disabled = false;
+  if (error) { $("authErr").textContent = "Gagal: " + error.message + " (patch-v4.sql sudah dijalankan?)"; return; }
+  $("fgStep1").classList.add("hidden"); $("fgStep2").classList.remove("hidden");
+  $("authErr").style.color = "#166534";
+  $("authErr").textContent = again ? "Permintaan dikirim ulang. Tunggu pesan WhatsApp dari admin." : "";
+}
+async function forgotVerify() {
+  const id = $("fgId").value.trim(), otp = $("fgOtp").value.trim(), pw = $("fgPass").value;
+  $("authErr").style.color = ""; $("authErr").textContent = "";
+  if (otp.length !== 6) { $("authErr").textContent = "Kode terdiri dari 6 angka"; return; }
+  if (pw.length < 6) { $("authErr").textContent = "Kata sandi minimal 6 karakter"; return; }
+  $("fgGo").disabled = true;
+  const { data, error } = await sb.rpc("verify_password_reset", { p_identifier: id, p_otp: otp, p_new_password: pw });
+  $("fgGo").disabled = false;
+  if (error) { $("authErr").textContent = "Gagal: " + error.message; return; }
+  if (!data.ok) { $("authErr").textContent = data.msg; return; }
+  authTab("login"); $("lPass").value = ""; if (id.includes("@")) $("lEmail").value = id;
+  $("authErr").style.color = "#166534"; $("authErr").textContent = "✅ Kata sandi berhasil diganti. Silakan masuk dengan kata sandi baru.";
 }
 
 /* ---------- START ---------- */

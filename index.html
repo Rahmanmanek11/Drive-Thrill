@@ -418,7 +418,10 @@ async function toggleOnline() {
 async function requestWake() { try { if ("wakeLock" in navigator) S.wake = await navigator.wakeLock.request("screen"); } catch (e) {} }
 function releaseWake() { try { S.wake && S.wake.release(); S.wake = null; } catch (e) {} }
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && S.driver && S.driver.status !== "offline") { requestWake(); pollOffers(); reloadDriver(); }
+  if (document.visibilityState === "visible" && S.driver && S.driver.status !== "offline") {
+    requestWake(); pollOffers(); reloadDriver();
+    if (S.pos) sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng });   // langsung kirim sinyal begitu aplikasi dibuka lagi
+  }
 });
 
 /* ---------- GPS & PETA ---------- */
@@ -492,7 +495,7 @@ function startLoops() {
   S.loops.push(setInterval(() => { loadDocs().then(() => S.driver && refreshHeader()); checkSanctions(); }, 30000));
   S.loops.push(setInterval(() => {                                   // heartbeat lokasi
     if (S.driver && S.driver.status !== "offline" && S.pos) sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng });
-  }, 20000));
+  }, 15000));
 }
 function stopLoops() { S.loops.forEach(clearInterval); S.loops = []; }
 function stopAll() { stopLoops(); clearInterval(S.ticker); if (S.channel) sb.removeChannel(S.channel); if (S.watchId != null) navigator.geolocation.clearWatch(S.watchId); releaseWake(); }

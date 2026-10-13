@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Driver Ojol",
-  "short_name": "Driver",
-  "description": "Aplikasi driver ojek online",
+  "name": "Drive Thrill Driver",
+  "short_name": "Drive Thrill",
+  "description": "Aplikasi driver Drive Thrill",
   "lang": "id",
   "dir": "ltr",
   "start_url": "./index.html",

@@ -107,6 +107,17 @@ nav.bottom button.on{color:var(--g)}
 .banner{background:#fef3c7;color:#92400e;padding:10px 14px;font-size:13px;font-weight:600}
 .lf-me{background:#2563eb;border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 6px rgba(37,99,235,.25)}
 
+/* ---------- DOKUMEN / SANKSI / GEO ---------- */
+.ovl{position:fixed;inset:0;z-index:2600;background:rgba(15,23,42,.7);display:flex;align-items:flex-end;justify-content:center}
+.ovlBody{background:#fff;width:100%;max-width:480px;max-height:94%;overflow:auto;border-radius:20px 20px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
+.ovlBody h3{margin:0 0 8px;font-size:18px}
+.banner.red{background:#fee2e2;color:#991b1b}
+.docF{margin-top:10px}.docF label{display:block;font-weight:600;font-size:14px}.docF small{display:block;color:var(--muted);font-size:12px;margin:2px 0 4px}
+.docF input[type=file]{width:100%;font-size:13px}
+.docPrev{width:100%;max-height:170px;object-fit:contain;border-radius:10px;background:#f1f5f9;margin-top:6px}
+.docErr{color:var(--red);font-size:13px;font-weight:600;margin-top:4px}
+.geo{padding:8px 10px;border-radius:10px;font-size:13px;font-weight:600;margin-top:8px}
+.geo.ok{background:#dcfce7;color:#166534}.geo.bad{background:#fef3c7;color:#92400e}
 /* ---------- TOP UP ---------- */
 #tuModal{position:fixed;inset:0;z-index:2500;background:rgba(15,23,42,.7);display:flex;align-items:flex-end;justify-content:center}
 #tuBody{background:#fff;width:100%;max-width:480px;max-height:94%;overflow:auto;border-radius:20px 20px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom))}
@@ -142,13 +153,14 @@ nav.bottom button.on{color:var(--g)}
       <label>Nama lengkap</label><input id="rName" required>
       <label>Nomor HP / WhatsApp</label><input id="rPhone" type="tel" placeholder="08xxxxxxxxxx" required>
       <label>Jenis kendaraan</label>
-      <select id="rVeh"><option value="motor">Motor (Ojek)</option><option value="mobil">Mobil (Taksi)</option></select>
+      <select id="rVeh" onchange="regVeh()"><option value="motor">Motor (Ojek)</option><option value="mobil">Mobil (Taksi)</option></select>
       <label>Merk / tipe kendaraan</label><input id="rModel" placeholder="Honda Beat 2021" required>
       <label>Plat nomor</label><input id="rPlate" placeholder="DD 1234 AB" required>
+      <div id="regDocs"></div>
       <label>Email</label><input id="rEmail" type="email" autocomplete="email" required>
       <label>Kata sandi (min. 6 karakter)</label><input id="rPass" type="password" minlength="6" autocomplete="new-password" required>
       <button class="btn" id="btnReg">Daftar</button>
-      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">Setelah mendaftar, akun Anda akan diperiksa dan disetujui admin sebelum bisa menerima order.</p>
+      <p style="font-size:12px;color:var(--muted);margin:10px 0 0">Setelah mendaftar, KTP, STNK, SIM, dan selfie Anda diperiksa admin. Akun baru bisa menerima order setelah semua dokumen disetujui.</p>
     </form>
     <div class="err" id="authErr"></div>
   </div>
@@ -215,6 +227,8 @@ nav.bottom button.on{color:var(--g)}
   </div>
 </div>
 
+<div id="destModal" class="ovl hidden"><div class="ovlBody" id="destBody"></div></div>
+<div id="sanModal" class="ovl hidden"><div class="ovlBody" id="sanBody"></div></div>
 <div id="tuModal" class="hidden"><div id="tuBody"></div></div>
 
 <div id="toast"></div>
@@ -268,9 +282,9 @@ function showTab(t) {
   if (t === "home" && S.map) setTimeout(() => S.map.invalidateSize(), 80);
   if (t === "history") loadHistory();
   if (t === "wallet") loadWallet();
-  if (t === "profile") renderProfile();
+  if (t === "profile") { renderProfile(); loadDocs().then(() => { if (S.driver) { renderProfile(); refreshHeader(); } }); checkSanctions(); }
 }
-function setBanner(msg) { const b = $("banner"); b.textContent = msg || ""; b.classList.toggle("hidden", !msg); }
+function setBanner(msg, red) { const b = $("banner"); b.textContent = msg || ""; b.classList.toggle("hidden", !msg); b.classList.toggle("red", !!(red && msg)); }
 
 /* ---------- SUARA & GETAR ---------- */
 function beep() {
@@ -300,18 +314,6 @@ async function doLogin(e) {
   if (error) { $("authErr").textContent = "Gagal masuk: " + (error.message.includes("Invalid") ? "email / kata sandi salah" : error.message); return false; }
   await boot(); return false;
 }
-async function doRegister(e) {
-  e.preventDefault(); $("authErr").textContent = ""; $("btnReg").disabled = true;
-  const { data, error } = await sb.auth.signUp({
-    email: $("rEmail").value.trim(), password: $("rPass").value,
-    options: { data: { role: "driver", full_name: $("rName").value.trim(), phone: $("rPhone").value.trim(),
-      vehicle_type: $("rVeh").value, vehicle_model: $("rModel").value.trim(), plate: $("rPlate").value.trim() } }
-  });
-  $("btnReg").disabled = false;
-  if (error) { $("authErr").textContent = "Gagal daftar: " + error.message; return false; }
-  if (!data.session) { $("authErr").style.color = "#166534"; $("authErr").textContent = "Pendaftaran berhasil. Cek email untuk konfirmasi, lalu masuk. (Admin bisa menonaktifkan konfirmasi email di Supabase.)"; return false; }
-  await boot(); return false;
-}
 async function logout() {
   if (S.driver && S.driver.status !== "offline" && !S.order) await sb.rpc("driver_set_status", { p_status: "offline" });
   stopAll(); await sb.auth.signOut(); location.reload();
@@ -336,16 +338,21 @@ async function boot() {
   (st || []).forEach((r) => (S.settings[r.key] = Number(r.value)));
 
   $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
+  await Promise.all([loadDocs(), checkSanctions()]);
   initMap(); refreshHeader(); startGeo();
   await Promise.all([loadStats(), restoreActiveOrder()]);
   subscribe(); startLoops();
+  clearInterval(S.ticker); S.ticker = setInterval(() => { if (!S.driver) return; if (isSusp(S.driver)) suspTick(); else if (S.suspShown) { S.suspShown = false; reloadDriver(); } }, 1000);
   if ("Notification" in window && Notification.permission === "default") Notification.requestPermission();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
 async function reloadDriver() {
   const { data } = await sb.from("drivers").select("*").eq("id", S.user.id).single();
-  if (data) { S.driver = data; refreshHeader(); }
+  if (data) {
+    const prev = S.driver; S.driver = data; refreshHeader();
+    if (prev && (prev.suspended_until !== data.suspended_until || prev.banned !== data.banned)) checkSanctions();
+  }
 }
 
 function refreshHeader() {
@@ -356,8 +363,10 @@ function refreshHeader() {
   $("tgOnline").classList.toggle("on", st !== "offline");
   $("stBal").textContent = rp(d.balance);
   if (d.banned) setBanner("⛔ Akun Anda diblokir. Hubungi admin.");
-  else if (!d.approved) setBanner("⏳ Akun menunggu persetujuan admin. Anda belum bisa online.");
-  else if (d.balance < (S.settings.min_balance ?? -50000)) setBanner("⚠️ Saldo deposit kurang. Hubungi admin untuk top up.");
+  else if (isSusp(d)) suspTick();
+  else if (!d.approved) setBanner(docsMsg() || "⏳ Akun menunggu persetujuan admin. Anda belum bisa online.");
+  else if (docsMsg()) setBanner(docsMsg());
+  else if (d.balance < (S.settings.min_balance ?? -50000)) setBanner("⚠️ Saldo deposit kurang. Silakan top up di tab Dompet.");
   else setBanner("");
   const idle = !S.order;
   $("idleSheet").classList.toggle("hidden", !idle);
@@ -406,6 +415,7 @@ function startGeo() {
 }
 function onPos(p) {
   S.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
+  if (S.order) updateGeo();
   const ll = [S.pos.lat, S.pos.lng];
   if (!S.meMarker) {
     S.meMarker = L.marker(ll, { icon: L.divIcon({ className: "", html: '<div class="lf-me" style="width:18px;height:18px"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(S.map);
@@ -457,12 +467,13 @@ function startLoops() {
   S.loops.push(setInterval(pollOffers, 4000));                       // cadangan bila realtime terputus
   S.loops.push(setInterval(() => sb.rpc("expire_offers"), 15000));   // tutup tawaran kadaluwarsa & cari driver lain
   S.loops.push(setInterval(() => { if (S.driver && S.driver.status !== "offline") reloadDriver(); }, 30000));
+  S.loops.push(setInterval(() => { loadDocs().then(() => S.driver && refreshHeader()); checkSanctions(); }, 30000));
   S.loops.push(setInterval(() => {                                   // heartbeat lokasi
     if (S.driver && S.driver.status !== "offline" && S.pos) sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng });
   }, 20000));
 }
 function stopLoops() { S.loops.forEach(clearInterval); S.loops = []; }
-function stopAll() { stopLoops(); if (S.channel) sb.removeChannel(S.channel); if (S.watchId != null) navigator.geolocation.clearWatch(S.watchId); releaseWake(); }
+function stopAll() { stopLoops(); clearInterval(S.ticker); if (S.channel) sb.removeChannel(S.channel); if (S.watchId != null) navigator.geolocation.clearWatch(S.watchId); releaseWake(); }
 
 /* ---------- TAWARAN ORDER ---------- */
 async function pollOffers() {
@@ -573,6 +584,7 @@ function renderOrder() {
       <div class="pt d"><small>TUJUAN</small><span>${esc(o.dest_address || o.dest_lat.toFixed(5) + ", " + o.dest_lng.toFixed(5))}</span></div>
     </div>
     <div class="kv"><span>Jarak</span><b>${Number(o.distance_km).toFixed(1)} km</b></div>
+    <div id="geoBox"></div>
     <div class="kv"><span>Komisi aplikasi (${S.settings.commission_pct ?? 10}%)</span><b>- ${rp(com)}</b></div>
     <div class="row" style="margin-top:10px">
       <a class="btn blue" style="text-align:center;text-decoration:none;margin-top:0" href="${nav}" target="_blank" rel="noopener">🧭 Navigasi</a>
@@ -580,7 +592,9 @@ function renderOrder() {
       <a class="btn gray" style="text-align:center;text-decoration:none;margin-top:0" href="https://wa.me/${esc(String(c.phone).replace(/\D/g, "").replace(/^0/, "62"))}" target="_blank" rel="noopener">💬 WA</a>` : ""}
     </div>
     <button class="btn" id="btnStep" onclick="advanceOrder()">${st.btn}</button>
+    ${o.status === "ongoing" ? `<button class="btn gray" style="margin-top:8px" onclick="openDestChange()">📍 Ubah titik antar</button>` : ""}
     ${o.status !== "ongoing" ? `<button class="btn red" style="margin-top:8px" onclick="cancelOrder()">Batalkan order</button>` : ""}`;
+  updateGeo();
 }
 async function advanceOrder() {
   const o = S.order, st = STEP[o.status];
@@ -588,8 +602,8 @@ async function advanceOrder() {
       !confirm("Anda masih >500 m dari titik jemput. Tetap tandai sudah tiba?")) return;
   if (st.next === "completed" && !confirm("Selesaikan perjalanan? Pastikan pelanggan sudah sampai" + (o.payment === "cash" ? " dan membayar " + rp(o.fare) : "") + ".")) return;
   $("btnStep").disabled = true;
-  const { data, error } = await sb.rpc("driver_update_order", { p_order: o.id, p_status: st.next });
-  if (error || !data.ok) { toast(error ? error.message : data.msg); $("btnStep").disabled = false; return; }
+  const { data, error } = await sb.rpc("driver_update_order", { p_order: o.id, p_status: st.next, p_lat: S.pos ? S.pos.lat : null, p_lng: S.pos ? S.pos.lng : null });
+  if (error || !data.ok) { toast(error ? error.message : data.msg, 7000); $("btnStep").disabled = false; return; }
   if (st.next === "completed") {
     beep(); alert("✅ Perjalanan selesai!\n\nTarif: " + rp(data.fare) + "\nKomisi aplikasi: " + rp(data.commission) + "\nPendapatan bersih: " + rp(data.fare - data.commission));
     S.order = null; $("orderSheet").classList.add("hidden"); clearOrderMap(); loadStats();
@@ -644,6 +658,7 @@ function renderProfile() {
       <div class="kv"><span>Rating</span><b>⭐ ${Number(d.rating).toFixed(2)}</b></div>
       <div class="kv"><span>Total perjalanan</span><b>${d.total_trips}</b></div>
       <div class="kv"><span>Bergabung</span><b>${fmtTime(d.created_at)}</b></div></div>
+    ${docsCardHTML()}${sancHTML()}
     <button class="btn red" onclick="logout()">Keluar</button>`;
 }
 
@@ -792,7 +807,225 @@ function tuCopy() {
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") tuCheck(); });
 
+/* ---------- DOKUMEN, SANKSI, TITIK ANTAR ---------- */
+S.docs = {}; S.sanc = []; S.sanShown = false; S.suspShown = false;
+const DOC_KINDS = ["ktp", "stnk", "sim", "selfie"];
+const DOC_TIP = {
+  ktp: "Foto seluruh KTP dari atas. Semua tulisan dan foto wajah harus terbaca, tanpa silau.",
+  stnk: "Foto seluruh STNK. Plat nomor dan nama pemilik harus terbaca jelas.",
+  sim: "Foto SIM yang masih berlaku. Semua tulisan harus terbaca jelas.",
+  selfie: "Foto wajah Anda menghadap kamera, tanpa masker, topi, atau kacamata hitam."
+};
+function docTitle(k, veh) {
+  veh = veh || (S.driver && S.driver.vehicle_type) || "motor";
+  return k === "ktp" ? "KTP" : k === "stnk" ? "STNK" : k === "sim" ? (veh === "mobil" ? "SIM A (mobil)" : "SIM C (motor)") : "Selfie";
+}
+
+/* kompres + cek kualitas foto (gelap / silau / buram / terlalu kecil) */
+function prepImage(file) {
+  return new Promise((res, rej) => {
+    if (!file) return rej(new Error("Tidak ada foto"));
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const w = img.naturalWidth, h = img.naturalHeight;
+      if (Math.min(w, h) < 600) return rej(new Error("Resolusi foto terlalu kecil. Ambil ulang dengan kamera, lebih dekat dan fokus."));
+      const sc = Math.min(1, 1600 / Math.max(w, h)), cw = Math.round(w * sc), ch = Math.round(h * sc);
+      const c = document.createElement("canvas"); c.width = cw; c.height = ch;
+      c.getContext("2d").drawImage(img, 0, 0, cw, ch);
+      const aw = 480, ah = Math.max(3, Math.round(480 * ch / cw)), a = document.createElement("canvas"); a.width = aw; a.height = ah;
+      const ax = a.getContext("2d"); ax.drawImage(img, 0, 0, aw, ah);
+      const px = ax.getImageData(0, 0, aw, ah).data, g = new Float32Array(aw * ah); let sum = 0;
+      for (let i = 0, j = 0; i < px.length; i += 4, j++) { g[j] = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]; sum += g[j]; }
+      const mean = sum / g.length;
+      if (mean < 35) return rej(new Error("Foto terlalu gelap. Cari tempat yang lebih terang."));
+      if (mean > 235) return rej(new Error("Foto terlalu terang / silau. Hindari pantulan lampu."));
+      let s1 = 0, s2 = 0, n = 0;
+      for (let y = 1; y < ah - 1; y++) for (let x = 1; x < aw - 1; x++) {
+        const i = y * aw + x, l = 4 * g[i] - g[i - 1] - g[i + 1] - g[i - aw] - g[i + aw]; s1 += l; s2 += l * l; n++;
+      }
+      if (s2 / n - (s1 / n) ** 2 < 18) return rej(new Error("Foto buram. Pegang HP stabil, pastikan tulisan terbaca jelas, lalu ambil ulang."));
+      c.toBlob((b) => (b ? res(b) : rej(new Error("Gagal memproses foto"))), "image/jpeg", 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("File bukan foto yang valid")); };
+    img.src = url;
+  });
+}
+async function uploadDoc(kind, blob, uid) {
+  const path = uid + "/" + kind + "-" + Date.now() + ".jpg";
+  const { error } = await sb.storage.from("driver-docs").upload(path, blob, { contentType: "image/jpeg" });
+  if (error) throw error;
+  const { data, error: e2 } = await sb.rpc("driver_submit_doc", { p_kind: kind, p_path: path });
+  if (e2) throw e2;
+  if (!data.ok) throw new Error(data.msg);
+}
+
+/* --- form pendaftaran --- */
+const REG = { files: {} };
+function renderRegDocs() {
+  const veh = $("rVeh").value;
+  $("regDocs").innerHTML = '<div style="margin:14px 0 4px;font-weight:700">Dokumen wajib (foto langsung dari kamera)</div>' +
+    DOC_KINDS.map((k) => `<div class="docF"><label id="lbl_${k}">Foto ${esc(docTitle(k, veh))}</label>
+      <input type="file" accept="image/*" capture="${k === "selfie" ? "user" : "environment"}" onchange="regPick('${k}',this)">
+      <small>${DOC_TIP[k]}</small><img class="docPrev hidden" id="pv_${k}"><div class="docErr" id="er_${k}"></div></div>`).join("");
+}
+function regVeh() { $("lbl_sim").textContent = "Foto " + docTitle("sim", $("rVeh").value); }
+async function regPick(kind, input) {
+  const f = input.files && input.files[0]; REG.files[kind] = null;
+  $("pv_" + kind).classList.add("hidden"); $("er_" + kind).textContent = "";
+  if (!f) return;
+  try {
+    const b = await prepImage(f); REG.files[kind] = b;
+    const p = $("pv_" + kind); p.src = URL.createObjectURL(b); p.classList.remove("hidden");
+  } catch (e) { input.value = ""; $("er_" + kind).textContent = "❌ " + e.message; }
+}
+async function doRegister(e) {
+  e.preventDefault(); $("authErr").textContent = ""; $("authErr").style.color = "";
+  for (const k of DOC_KINDS) if (!REG.files[k]) { $("authErr").textContent = "Foto " + docTitle(k, $("rVeh").value) + " wajib diunggah dan harus jelas."; return false; }
+  $("btnReg").disabled = true;
+  const { data, error } = await sb.auth.signUp({
+    email: $("rEmail").value.trim(), password: $("rPass").value,
+    options: { data: { role: "driver", full_name: $("rName").value.trim(), phone: $("rPhone").value.trim(),
+      vehicle_type: $("rVeh").value, vehicle_model: $("rModel").value.trim(), plate: $("rPlate").value.trim() } }
+  });
+  if (error) { $("btnReg").disabled = false; $("authErr").textContent = "Gagal daftar: " + error.message; return false; }
+  if (!data.session) {
+    $("btnReg").disabled = false; $("authErr").style.color = "#166534";
+    $("authErr").textContent = "Pendaftaran berhasil. Cek email untuk konfirmasi, lalu masuk dan lengkapi foto dokumen di tab Profil."; return false;
+  }
+  const failed = [];
+  for (const k of DOC_KINDS) {
+    $("btnReg").textContent = "Mengunggah " + docTitle(k, $("rVeh").value) + "…";
+    try { await uploadDoc(k, REG.files[k], data.session.user.id); } catch (err) { failed.push(docTitle(k, $("rVeh").value)); }
+  }
+  $("btnReg").textContent = "Daftar"; $("btnReg").disabled = false;
+  if (failed.length) alert("Akun dibuat, tetapi foto ini gagal diunggah: " + failed.join(", ") + ".\nLengkapi di tab Profil.");
+  await boot(); return false;
+}
+
+/* --- dokumen di profil --- */
+async function loadDocs() {
+  if (!S.user) return;
+  const { data } = await sb.from("driver_docs").select("*").eq("driver_id", S.user.id);
+  S.docs = {}; (data || []).forEach((r) => (S.docs[r.kind] = r));
+}
+function docsMsg() {
+  const d = S.driver; if (!d || !d.docs_required) return "";
+  const bad = DOC_KINDS.some((k) => !S.docs[k] || S.docs[k].status === "rejected");
+  if (bad) return "📄 Dokumen belum lengkap atau ada yang ditolak. Buka tab Profil untuk mengunggah.";
+  if (DOC_KINDS.some((k) => S.docs[k].status === "pending")) return "📄 Dokumen sedang diperiksa admin.";
+  return "";
+}
+function docsCardHTML() {
+  if (!S.driver.docs_required && !Object.keys(S.docs).length) return "";
+  return `<div class="card2"><b>Dokumen verifikasi</b>` + DOC_KINDS.map((k) => {
+    const r = S.docs[k];
+    const pill = !r ? '<span class="pill r">Belum diunggah</span>' : r.status === "approved" ? '<span class="pill g">Disetujui</span>'
+      : r.status === "pending" ? '<span class="pill a">Dicek admin</span>' : '<span class="pill r">Ditolak</span>';
+    const can = !r || r.status !== "approved";
+    return `<div class="li"><div>${esc(docTitle(k))}${r && r.status === "rejected" ? `<small style="color:var(--red)">Ditolak: ${esc(r.reject_reason || "-")}</small>` : ""}</div>
+      <div style="text-align:right">${pill}${can ? `<br><label class="btn sm gray" style="display:inline-block;margin-top:6px">${r ? "Ganti foto" : "Ambil foto"}
+      <input type="file" accept="image/*" capture="${k === "selfie" ? "user" : "environment"}" hidden onchange="uploadDocFile('${k}',this)"></label>` : ""}</div></div>`;
+  }).join("") + `</div>`;
+}
+async function uploadDocFile(kind, input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  try {
+    toast("Memeriksa foto…"); const b = await prepImage(f);
+    toast("Mengunggah…"); await uploadDoc(kind, b, S.user.id);
+    await loadDocs(); renderProfile(); refreshHeader(); toast("Foto terkirim, menunggu pemeriksaan admin", 4000);
+  } catch (e) { input.value = ""; toast("❌ " + (e.message || e), 6000); }
+}
+
+/* --- sanksi --- */
+const isSusp = (d) => d && d.suspended_until && new Date(d.suspended_until) > new Date();
+function suspTick() {
+  const d = S.driver; if (!isSusp(d)) return;
+  const s = Math.max(0, Math.round((new Date(d.suspended_until) - Date.now()) / 1000));
+  const t = s >= 3600 ? Math.floor(s / 3600) + " jam " + Math.floor((s % 3600) / 60) + " mnt" : Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  const why = (S.sanc || []).find((x) => x.kind === "suspension");
+  S.suspShown = true;
+  setBanner("⏸ Akun diskors — sisa " + t + (why && why.reason ? " · " + why.reason : ""), true);
+}
+async function checkSanctions() {
+  if (!S.user) return;
+  const { data } = await sb.from("driver_sanctions").select("*").eq("driver_id", S.user.id).order("created_at", { ascending: false }).limit(15);
+  S.sanc = data || [];
+  const un = S.sanc.filter((x) => !x.ack && x.kind !== "lift");
+  if (un.length && !S.sanShown2) {
+    S.sanShown2 = true;
+    const lbl = { warning: "⚠️ Peringatan dari admin", suspension: "⏸ Akun diskors", ban: "⛔ Akun diblokir" };
+    $("sanBody").innerHTML = `<h3>Pemberitahuan dari admin</h3>` + un.map((x) => `<div class="card2" style="background:#fef2f2"><b>${lbl[x.kind] || x.kind}</b>
+      ${x.until ? `<div style="font-size:13px">Sampai ${esc(new Date(x.until).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }))}</div>` : ""}
+      <div style="margin-top:4px">${esc(x.reason || "-")}</div><small style="color:var(--muted)">${x.source === "auto" ? "Sanksi otomatis sistem" : "Diputuskan admin"}</small></div>`).join("") +
+      `<button class="btn" onclick="ackSanctions()">Saya mengerti</button>`;
+    $("sanModal").classList.remove("hidden");
+  }
+  if (S.driver) refreshHeader();
+}
+async function ackSanctions() {
+  $("sanModal").classList.add("hidden"); S.sanShown2 = false;
+  await sb.rpc("driver_ack_sanctions"); checkSanctions();
+}
+function sancHTML() {
+  const rows = (S.sanc || []).slice(0, 6);
+  if (!rows.length) return "";
+  const lbl = { warning: "Peringatan", suspension: "Skorsing", ban: "Blokir", lift: "Skorsing dicabut" };
+  return `<div class="card2"><b>Riwayat sanksi</b>` + rows.map((x) => `<div class="li"><div>${lbl[x.kind] || x.kind}<small>${fmtTime(x.created_at)} · ${esc(x.reason || "-")}</small></div></div>`).join("") + `</div>`;
+}
+
+/* --- selesai order hanya di titik antar + ubah titik antar --- */
+function updateGeo() {
+  const o = S.order, b = $("geoBox"); if (!o || o.status !== "ongoing" || !b) return;
+  const rad = S.settings.complete_radius_m ?? 150, bt = $("btnStep");
+  if (!S.pos) { b.innerHTML = '<div class="geo bad">📡 Menunggu sinyal GPS…</div>'; if (bt) { bt.disabled = true; } return; }
+  const m = Math.round(distKm(S.pos.lat, S.pos.lng, o.dest_lat, o.dest_lng) * 1000), ok = m <= rad;
+  b.innerHTML = `<div class="geo ${ok ? "ok" : "bad"}">${ok ? "✅ Anda sudah di titik antar" : "📍 " + (m >= 1000 ? (m / 1000).toFixed(1) + " km" : m + " m") + " lagi ke titik antar (maks. " + rad + " m agar bisa menyelesaikan)"}</div>`;
+  if (bt) bt.disabled = !ok;
+}
+async function reverseGeo(lat, lng) {
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 4000);
+    const r = await fetch("https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat=" + lat + "&lon=" + lng, { signal: ctl.signal, headers: { "Accept-Language": "id" } });
+    clearTimeout(t); const j = await r.json();
+    if (j && j.display_name) return j.display_name.split(",").slice(0, 3).join(",").trim();
+  } catch (e) {}
+  return "Titik diubah driver (" + lat.toFixed(5) + ", " + lng.toFixed(5) + ")";
+}
+function openDestChange() {
+  const o = S.order; if (!o) return;
+  $("destBody").innerHTML = `<h3>Ubah titik antar</h3>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Titik antar baru = <b>lokasi GPS Anda sekarang</b>. Gunakan hanya jika pelanggan benar-benar minta turun di sini atau titik di peta salah.
+    Perubahan lebih dari ${S.settings.dest_flag_m ?? 300} m dari tujuan awal akan ditinjau admin. <b>Kecurangan dikenai sanksi.</b></div>
+    <div class="kv"><span>Tujuan saat ini</span><b style="text-align:right">${esc(o.dest_address || "-")}</b></div>
+    <label style="display:block;margin-top:10px;font-size:13px;font-weight:600">Alasan</label>
+    <select id="dcWhy" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:12px;margin-top:4px">
+      <option>Pelanggan minta turun di titik ini</option><option>Titik tujuan di peta salah</option>
+      <option>Jalan ditutup / tidak bisa dilewati</option><option>Lainnya</option></select>
+    <input id="dcNote" placeholder="Keterangan tambahan (wajib jika Lainnya)" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:12px;margin-top:8px">
+    <button class="btn" id="dcGo" onclick="doDestChange()">Gunakan lokasi saya sekarang</button>
+    <button class="btn gray" onclick="$('destModal').classList.add('hidden')">Batal</button>`;
+  $("destModal").classList.remove("hidden");
+}
+async function doDestChange() {
+  if (!S.pos) return toast("GPS belum terbaca. Tunggu sebentar.");
+  const why = $("dcWhy").value, note = $("dcNote").value.trim();
+  if (why === "Lainnya" && note.length < 5) return toast("Isi keterangan alasan");
+  $("dcGo").disabled = true; $("dcGo").textContent = "Memproses…";
+  try {
+    await sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng });
+    const addr = await reverseGeo(S.pos.lat, S.pos.lng);
+    const { data, error } = await sb.rpc("driver_change_dest", { p_order: S.order.id, p_address: addr, p_reason: why + (note ? " — " + note : "") });
+    if (error) throw new Error(error.message);
+    if (!data.ok) throw new Error(data.msg);
+    $("destModal").classList.add("hidden");
+    toast(data.flagged ? "Titik antar diubah. Perubahan ini akan ditinjau admin." : "Titik antar diubah.", 5000);
+    await restoreActiveOrder(); if (S.order) drawOrderOnMap(S.order);
+  } catch (e) { toast("Gagal: " + e.message, 6000); $("dcGo").disabled = false; $("dcGo").textContent = "Gunakan lokasi saya sekarang"; }
+}
+
 /* ---------- START ---------- */
+renderRegDocs();
 sb.auth.onAuthStateChange((ev) => { if (ev === "SIGNED_OUT") { $("app").classList.add("hidden"); $("auth").classList.remove("hidden"); } });
 boot();
 </script>

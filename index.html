@@ -244,6 +244,7 @@ nav.bottom button.on{color:var(--g)}
       <button class="btn red" onclick="rejectOffer()">Tolak</button>
       <button class="btn" onclick="acceptOffer()" id="btnAccept">Terima</button>
     </div>
+    <div style="text-align:center;font-size:12px;color:#b45309;margin-top:8px">⚠ Menolak order mengurangi rating Anda</div>
   </div>
 </div>
 
@@ -555,7 +556,8 @@ async function acceptOffer() {
 async function rejectOffer() {
   if (!S.offer) return;
   const id = S.offer.id; hideOffer();
-  await sb.rpc("reject_offer", { p_offer: id });
+  const { data: rj } = await sb.rpc("reject_offer", { p_offer: id });
+  if (rj && rj.penalty) { toast("Rating turun " + rj.penalty + " karena menolak order. Rating sekarang " + Number(rj.rating).toFixed(2), 6000); await reloadDriver(); refreshHeader(); }
   toast("Order ditolak");
   setTimeout(pollOffers, 600);
 }
@@ -640,7 +642,7 @@ async function cancelOrder() {
   if (!reason || !reason.trim()) return;
   const { data, error } = await sb.rpc("driver_cancel_order", { p_order: S.order.id, p_reason: reason.trim() });
   if (error || !data.ok) return toast(error ? error.message : data.msg);
-  toast("Order dibatalkan, dikembalikan ke pencarian driver lain");
+  toast(data.penalty ? "Order dibatalkan. Rating turun " + data.penalty + " (sekarang " + Number(data.rating).toFixed(2) + ")" : "Order dibatalkan, dikembalikan ke pencarian driver lain", 6000);
   S.order = null; $("orderSheet").classList.add("hidden"); clearOrderMap();
   await reloadDriver(); refreshHeader();
 }

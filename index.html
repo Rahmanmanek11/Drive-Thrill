@@ -448,7 +448,7 @@ function onPos(p) {
     S.map.setView(ll, 15);
   } else S.meMarker.setLatLng(ll);
   // kirim lokasi ke server tiap ≥5 detik saat online/sibuk
-  if (S.driver && S.driver.status !== "offline" && Date.now() - S.lastSend > 5000) {
+  if (S.driver && S.driver.status !== "offline" && Date.now() - S.lastSend > 1000) {
     S.lastSend = Date.now();
     sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng });
   }
@@ -490,13 +490,15 @@ function subscribe() {
 }
 function startLoops() {
   stopLoops();
-  S.loops.push(setInterval(pollOffers, 4000));                       // cadangan bila realtime terputus
+  S.loops.push(setInterval(pollOffers, 2000));                       // cadangan bila realtime terputus
   S.loops.push(setInterval(() => sb.rpc("expire_offers"), 15000));   // tutup tawaran kadaluwarsa & cari driver lain
   S.loops.push(setInterval(() => { if (S.driver && S.driver.status !== "offline") reloadDriver(); }, 30000));
   S.loops.push(setInterval(() => { loadDocs().then(() => S.driver && refreshHeader()); checkSanctions(); }, 30000));
-  S.loops.push(setInterval(() => {                                   // heartbeat lokasi
-    if (S.driver && S.driver.status !== "offline" && S.pos) sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng });
-  }, 15000));
+  S.loops.push(setInterval(() => {                                   // heartbeat lokasi tiap 1 detik
+    if (S.hbBusy || !S.driver || S.driver.status === "offline" || !S.pos) return;
+    S.hbBusy = true;
+    Promise.resolve(sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng })).finally(() => { S.hbBusy = false; });
+  }, 1000));
 }
 function stopLoops() { S.loops.forEach(clearInterval); S.loops = []; }
 function stopAll() { stopLoops(); clearInterval(S.ticker); if (S.channel) sb.removeChannel(S.channel); if (S.watchId != null) navigator.geolocation.clearWatch(S.watchId); releaseWake(); }

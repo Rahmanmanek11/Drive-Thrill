@@ -172,7 +172,7 @@ nav.bottom button.on{color:var(--g)}
     <div class="nm"><b id="hName">Driver</b><small id="hSub">Offline</small></div>
     <div class="switch"><span id="swLabel">OFFLINE</span><button class="tg" id="tgOnline" aria-label="Online/Offline" onclick="toggleOnline()"></button></div>
   </header>
-  <div id="banner" class="banner hidden"></div>
+  <div id="banner" class="banner hidden" onclick="if(S.driver&&docsMsg())showTab('profile')" style="cursor:pointer"></div>
 
   <main>
     <!-- BERANDA -->
@@ -340,6 +340,7 @@ async function boot() {
   $("auth").classList.add("hidden"); $("app").classList.remove("hidden");
   await Promise.all([loadDocs(), checkSanctions()]);
   initMap(); refreshHeader(); startGeo();
+  if (S.driver.docs_required && docsMsg().startsWith("📄 Dokumen belum")) { showTab("profile"); setTimeout(() => alert("Selamat datang! Untuk bergabung sebagai driver, lengkapi dulu foto KTP, STNK, SIM, dan selfie di halaman Profil ini."), 400); }
   await Promise.all([loadStats(), restoreActiveOrder()]);
   subscribe(); startLoops();
   clearInterval(S.ticker); S.ticker = setInterval(() => { if (!S.driver) return; if (isSusp(S.driver)) suspTick(); else if (S.suspShown) { S.suspShown = false; reloadDriver(); } }, 1000);

@@ -69,10 +69,8 @@ nav.bottom button.on{color:var(--g)}
 /* handle: tarik ke bawah = ciutkan, tarik ke atas / ketuk = buka */
 .grab{touch-action:none;cursor:grab;padding:8px 0 14px;margin:-14px 0 0;user-select:none;-webkit-user-select:none}
 .grab i{display:block;width:46px;height:5px;border-radius:3px;background:#cbd5e1;margin:0 auto}
-.sheet.min{padding-bottom:12px}
+.sheet.min{padding-bottom:10px}
 .sheet.min .more{display:none}
-.navMini{display:none;flex:none;width:auto;margin:0;padding:8px 12px;font-size:13px}
-.sheet.min .navMini{display:inline-block}
 .navInfo{font-size:13px;color:var(--muted);font-weight:600;min-height:18px}
 .chg{background:#fef3c7;color:#92400e;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:600;margin:6px 0}
 .ext{display:block;text-align:center;font-size:12px;color:var(--muted);margin-top:10px;text-decoration:underline}
@@ -85,12 +83,23 @@ nav.bottom button.on{color:var(--g)}
 #navBar .tx span{display:block;font-size:14px;opacity:.92;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 #navBar button{flex:none;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:17px;padding:0}
 #navEta{position:absolute;left:50%;transform:translateX(-50%);top:84px;z-index:420;background:#fff;border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);white-space:nowrap}
-#btnRecenter{position:absolute;right:12px;z-index:420;width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.3);font-size:22px;color:var(--blue);display:flex;align-items:center;justify-content:center;bottom:150px}
-.me-wrap{position:relative;width:44px;height:44px}
-.me-wrap .lf-me{position:absolute;left:13px;top:13px;width:18px;height:18px}
-.me-wrap .hd{display:none;position:absolute;inset:0;transition:transform .3s linear}
-.me-wrap .hd::after{content:"";position:absolute;left:14px;top:-4px;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:16px solid #2563eb;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
-body.navmode .me-wrap .hd{display:block}
+/* tombol peta ala Maxim */
+#mapCtl{position:absolute;right:12px;bottom:200px;z-index:420;display:flex;flex-direction:column;gap:10px}
+.mc{width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 2px 10px rgba(0,0,0,.3);font-size:26px;font-weight:600;color:#111827;display:flex;align-items:center;justify-content:center;padding:0;line-height:1}
+.mc:active{background:#e2e8f0}
+.mc.on{color:var(--blue)}
+.mc svg{width:26px;height:26px}
+#btnNavToggle{position:absolute;left:12px;top:96px;z-index:420;width:54px;height:54px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center;padding:0}
+#btnNavToggle svg{width:30px;height:30px}
+#btnNavToggle.on{background:var(--blue)}
+#sheetTab{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:450;background:#fff;border-radius:22px 22px 0 0;padding:7px 22px 6px;font-size:13px;font-weight:700;color:#334155;box-shadow:0 -3px 12px rgba(0,0,0,.25)}
+.sheet.hid{display:none}
+.sheet.min .oidtxt,.sheet.min .geoNote{display:none}
+.sheet.min .geo{padding:5px 10px;margin-top:4px;font-size:12px}
+.sheet.min #btnStep{padding:11px;margin-top:8px;font-size:15px}
+.me-wrap{position:relative;width:48px;height:48px}
+.me-wrap .arw{position:absolute;inset:0;transition:transform .35s linear;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))}
+.me-wrap .arw svg{width:48px;height:48px;display:block}
 .sheet h3{margin:0 0 8px;font-size:16px}
 .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
 .pill.g{background:#dcfce7;color:#166534}.pill.a{background:#fef3c7;color:#92400e}.pill.b{background:#dbeafe;color:#1e40af}.pill.r{background:#fee2e2;color:#991b1b}.pill.s{background:#e2e8f0;color:#334155}
@@ -230,7 +239,14 @@ body.navmode .me-wrap .hd{display:block}
         <button onclick="exitNav()" aria-label="Hentikan navigasi">✕</button>
       </div>
       <div id="navEta" class="hidden"></div>
-      <button id="btnRecenter" class="hidden" onclick="recenterNav()" aria-label="Pusatkan ke posisi saya">◎</button>
+      <button id="btnNavToggle" class="hidden" onclick="toggleNav()" aria-label="Navigasi"><svg viewBox="0 0 24 24"><path d="M12 1.5 22.5 12 12 22.5 1.5 12z" fill="#111827"/><path d="M9.5 16v-4.3c0-.7.6-1.2 1.2-1.2H15M13 8l2.5 2.5L13 13" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div id="mapCtl">
+        <button class="mc" onclick="S.map.zoomIn()" aria-label="Perbesar">+</button>
+        <button class="mc" onclick="S.map.zoomOut()" aria-label="Perkecil">−</button>
+        <button class="mc" id="btnNorth" onclick="northUp()" aria-label="Utara di atas" style="font-size:20px;font-weight:800;flex-direction:column"><span style="font-size:13px;line-height:.9">▲</span>N</button>
+        <button class="mc" id="btnFollow" onclick="recenterNav()" aria-label="Ikuti posisi saya"><svg viewBox="0 0 24 24"><path d="M3 11.5 21 3l-8.5 18-1.8-7.7z" fill="currentColor"/></svg></button>
+      </div>
+      <button id="sheetTab" class="hidden" onclick="setSheetState('min')">▲ Detail order</button>
       <div class="stats" id="stats">
         <div class="stat"><small>Pendapatan hari ini</small><b id="stEarn">Rp 0</b></div>
         <div class="stat"><small>Order hari ini</small><b id="stTrips">0</b></div>
@@ -465,7 +481,7 @@ function initMap() {
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(S.map);
   L.control.attribution({ prefix: false }).addAttribution("© OpenStreetMap").addTo(S.map);
   // driver menggeser peta sendiri → berhenti mengikuti sampai tombol ◎ ditekan
-  S.map.on("dragstart", () => { if (NAV.on && NAV.follow) { NAV.follow = false; $("btnRecenter").classList.remove("hidden"); relayoutRecenter(); } });
+  S.map.on("dragstart", () => { if (NAV.cam) { NAV.cam = false; syncFollowBtn(); } });
 }
 function startGeo() {
   if (!navigator.geolocation) return toast("Perangkat tidak mendukung GPS");
@@ -473,6 +489,21 @@ function startGeo() {
   S.watchId = navigator.geolocation.watchPosition(onPos, (e) => {
     toast(e.code === 1 ? "Izin lokasi ditolak. Aktifkan GPS untuk menerima order." : "GPS belum siap…");
   }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+}
+/* panah posisi driver (oranye, seperti Maxim): bergerak mulus & berputar mengikuti arah jalan */
+const ARROW_SVG = '<div class="me-wrap"><div class="arw"><svg viewBox="0 0 48 48"><path d="M24 4 38 40 24 32 10 40Z" fill="#f97316" stroke="#fff" stroke-width="3.5" stroke-linejoin="round"/></svg></div></div>';
+function moveMeMarker(to) {
+  const m = S.meMarker, from = m.getLatLng();
+  cancelAnimationFrame(S.meRaf);
+  if (!from || distKm(from.lat, from.lng, to[0], to[1]) > 0.25) return m.setLatLng(to);      // lompatan jauh: langsung pindah
+  const t0 = performance.now(), dur = 900;
+  const step = (t) => { const k = Math.min(1, (t - t0) / dur); m.setLatLng([from.lat + (to[0] - from.lat) * k, from.lng + (to[1] - from.lng) * k]); if (k < 1) S.meRaf = requestAnimationFrame(step); };
+  S.meRaf = requestAnimationFrame(step);
+}
+function turnArrow(h) {                       // putar lewat jalur terpendek (tanpa muter balik di 359°→0°)
+  const el = S.meMarker && S.meMarker.getElement(), a = el && el.querySelector(".arw"); if (!a) return;
+  const cur = S.arwDeg == null ? h : S.arwDeg, diff = ((h - cur + 540) % 360) - 180;
+  S.arwDeg = cur + diff; a.style.transform = "rotate(" + Math.round(S.arwDeg) + "deg)";
 }
 function bearing(a, b) {
   const r = Math.PI / 180, y = Math.sin((b.lng - a.lng) * r) * Math.cos(b.lat * r);
@@ -487,11 +518,12 @@ function onPos(p) {
   else if (typeof p.coords.heading === "number" && !isNaN(p.coords.heading) && (p.coords.speed || 0) > 1) S.pos.hdg = p.coords.heading;
   const ll = [S.pos.lat, S.pos.lng];
   if (!S.meMarker) {
-    S.meMarker = L.marker(ll, { zIndexOffset: 900, icon: L.divIcon({ className: "", html: '<div class="me-wrap"><div class="hd"></div><div class="lf-me"></div></div>', iconSize: [44, 44], iconAnchor: [22, 22] }) }).addTo(S.map);
+    S.meMarker = L.marker(ll, { zIndexOffset: 900, icon: L.divIcon({ className: "", html: ARROW_SVG, iconSize: [48, 48], iconAnchor: [24, 24] }) }).addTo(S.map);
     S.map.setView(ll, 15);
-  } else S.meMarker.setLatLng(ll);
-  if (S.pos.hdg != null) { const hd = S.meMarker.getElement() && S.meMarker.getElement().querySelector(".hd"); if (hd) hd.style.transform = "rotate(" + Math.round(S.pos.hdg) + "deg)"; }
+  } else moveMeMarker(ll);
+  if (S.pos.hdg != null) turnArrow(S.pos.hdg);
   if (S.order) { updateGeo(); navTick(); }
+  if (NAV.cam) followDriver(false);          // kamera ikut panah bila mode ikuti aktif
   // kirim lokasi ke server tiap ≥5 detik saat online/sibuk
   if (S.driver && S.driver.status !== "offline" && Date.now() - S.lastSend > 1000) {
     S.lastSend = Date.now();
@@ -508,12 +540,12 @@ function pin(color, label) {
    - Keluar jalur → rute dihitung ulang otomatis.
    - Tombol "Navigasi" (opsional) = peta mengikuti driver + petunjuk belokan + suara.
    ===================================================================== */
-const NAV = { on: false, follow: true, route: null, key: "", fetching: false, lastFetch: 0, off: 0, seg: 0, voice: false, spoken: {}, info: "", tripKey: "", lastTrack: 0, fitKey: "" };
+const NAV = { on: false, follow: true, cam: false, route: null, key: "", fetching: false, lastFetch: 0, off: 0, seg: 0, voice: false, spoken: {}, info: "", tripKey: "", lastTrack: 0, fitKey: "" };
 try { NAV.voice = localStorage.getItem("navVoice") === "1"; } catch (e) {}
 
 const targetOf = (o) => (o.status === "ongoing" ? { lat: o.dest_lat, lng: o.dest_lng } : { lat: o.pickup_lat, lng: o.pickup_lng });
 const fmtDist = (m) => (m < 20 ? "Sekarang" : m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1000).toFixed(1).replace(".", ",") + " km");
-const sheetH = () => { const s = $("orderSheet"); return s && !s.classList.contains("hidden") ? s.offsetHeight : 0; };
+const sheetH = () => { const s = $("orderSheet"); return s && !s.classList.contains("hidden") && !s.classList.contains("hid") ? s.offsetHeight : 0; };
 
 async function osrmRoute(a, b, steps) {
   const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 7000);
@@ -617,7 +649,6 @@ function navTick() {
       if (toNext <= 200 && toNext > 60 && !NAV.spoken[nx.i + "a"]) { NAV.spoken[nx.i + "a"] = 1; speak("Dalam " + Math.round(toNext / 10) * 10 + " meter, " + inf.text); }
       if (toNext <= 60 && !NAV.spoken[nx.i + "b"]) { NAV.spoken[nx.i + "b"] = 1; speak(inf.text); }
     }
-    if (NAV.follow) followDriver(false);
   }
 }
 const DIRID = { left: "kiri", right: "kanan", "slight left": "serong kiri", "slight right": "serong kanan", "sharp left": "tajam ke kiri", "sharp right": "tajam ke kanan", straight: "lurus", uturn: "putar balik" };
@@ -659,36 +690,48 @@ function followDriver(first) {
 }
 function fitOrderView(force) {
   const o = S.order; if (!o || !S.map) return;
-  if (NAV.on && NAV.follow) return followDriver(false);
-  if (NAV.on && !NAV.follow && !force) return;
+  if (NAV.cam) return followDriver(false);
+  if (NAV.on && !force) return;
   const R = NAV.route, pts = [];
   if (R) pts.push(...R.pts.slice(NAV.seg)); else pts.push([o.pickup_lat, o.pickup_lng], [o.dest_lat, o.dest_lng]);
   if (S.pos) pts.push([S.pos.lat, S.pos.lng]);
   const vb = visibleBox();
   S.map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [36, vb.top], paddingBottomRight: [36, vb.bottom], maxZoom: 17, animate: true });
 }
-function relayoutRecenter() { $("btnRecenter").style.bottom = (sheetH() + 16) + "px"; }
+function syncFollowBtn() { $("btnFollow").classList.toggle("on", !!NAV.cam); }
+function relayoutRecenter() {         // tombol peta selalu di atas kartu yang sedang tampil
+  const vis = (id) => { const e = $(id); return e && !e.classList.contains("hidden") && !e.classList.contains("hid") ? e.offsetHeight : 0; };
+  const tab = $("sheetTab").classList.contains("hidden") ? 0 : 36;
+  $("mapCtl").style.bottom = (Math.max(vis("orderSheet"), vis("idleSheet"), tab) + 14) + "px";
+}
 function relayoutMap() { requestAnimationFrame(() => { relayoutRecenter(); if (S.order) fitOrderView(true); }); }
 
 /* ---- mode navigasi (opsional) ---- */
 function startNav() {
   if (!S.order || NAV.on) return;
-  NAV.on = true; NAV.follow = true; document.body.classList.add("navmode");
-  $("navBar").classList.remove("hidden"); $("navEta").classList.remove("hidden"); $("stats").classList.add("hidden"); $("btnRecenter").classList.add("hidden");
+  NAV.on = true; NAV.cam = true; document.body.classList.add("navmode"); syncFollowBtn(); $("btnNavToggle").classList.add("on");
+  $("navBar").classList.remove("hidden"); $("navEta").classList.remove("hidden"); $("stats").classList.add("hidden");
   $("nbVoice").textContent = NAV.voice ? "🔊" : "🔇";
   $("nbInstr").textContent = NAV.route ? "Mengikuti rute…" : "Mencari rute…";
-  S.sheetMin = true; $("orderSheet").classList.add("min"); renderOrder();
+  setSheetState("min", true); renderOrder();
   requestAnimationFrame(() => { relayoutRecenter(); followDriver(true); navTick(); speak("Navigasi dimulai"); });
 }
 function exitNav() {
   if (!NAV.on) return;
-  NAV.on = false; NAV.follow = true; document.body.classList.remove("navmode");
-  $("navBar").classList.add("hidden"); $("navEta").classList.add("hidden"); $("stats").classList.remove("hidden"); $("btnRecenter").classList.add("hidden");
+  NAV.on = false; document.body.classList.remove("navmode"); $("btnNavToggle").classList.remove("on");
+  $("navBar").classList.add("hidden"); $("navEta").classList.add("hidden"); $("stats").classList.remove("hidden");
   try { speechSynthesis.cancel(); } catch (e) {}
   if (S.order) { renderOrder(); relayoutMap(); }
 }
 function toggleNav() { NAV.on ? exitNav() : startNav(); }
-function recenterNav() { NAV.follow = true; $("btnRecenter").classList.add("hidden"); followDriver(false); }
+function recenterNav() {              // tombol panah: kamera mengikuti posisi driver
+  if (!S.pos) return toast("Menunggu sinyal GPS…");
+  NAV.cam = true; syncFollowBtn(); followDriver(S.map.getZoom() < 16);
+}
+function northUp() {                  // peta selalu utara di atas; tombol N = pusatkan & zoom standar
+  if (!S.pos) return toast("Menunggu sinyal GPS…");
+  NAV.cam = true; syncFollowBtn(); followDriver(true);
+}
 
 /* ---- penanda & kamera saat order berubah ---- */
 function pin(color, label) {
@@ -708,6 +751,7 @@ function clearOrderMap() {
   S.pickMarker = S.destMarker = S.routeLine = S.routeCase = S.tripLine = null;
   NAV.route = null; NAV.key = ""; NAV.tripKey = ""; NAV.info = ""; NAV.fetching = false; NAV.seg = 0;
   if (NAV.on) exitNav();
+  $("btnNavToggle").classList.add("hidden"); $("sheetTab").classList.add("hidden"); S.sheetState = "full"; $("orderSheet").classList.remove("min", "hid"); relayoutRecenter();
 }
 /* rekam jejak GPS selama order berjalan (bukti untuk admin bila ada sengketa) */
 function trackLog() {
@@ -831,7 +875,7 @@ async function restoreActiveOrder() {
   }
   const prev = S.order, isNew = !prev || prev.id !== o.id;
   S.order = o;
-  if (isNew) { S.sheetMin = false; $("orderSheet").classList.remove("min"); NAV.lastTrack = 0; }
+  if (isNew) { setSheetState("full", true); NAV.cam = false; syncFollowBtn(); NAV.lastTrack = 0; }
   if (isNew || !S.orderCustomer) {
     const { data: c } = await sb.from("profiles").select("full_name,phone").eq("id", o.customer_id).maybeSingle();
     S.orderCustomer = c;
@@ -842,10 +886,14 @@ async function restoreActiveOrder() {
   trackLog();
   await reloadDriver();
 }
-function setSheetMin(v) {
-  S.sheetMin = !!v; $("orderSheet").classList.toggle("min", S.sheetMin); relayoutMap();
+const SHEET_ORDER = ["full", "min", "hid"];
+function setSheetState(st, quiet) {   // full = detail lengkap · min = ringkas · hid = hilang (tinggal tab kecil)
+  S.sheetState = st; const sh = $("orderSheet");
+  sh.classList.toggle("min", st === "min"); sh.classList.toggle("hid", st === "hid");
+  $("sheetTab").classList.toggle("hidden", !(st === "hid" && S.order));
+  relayoutRecenter(); if (!quiet) relayoutMap();
 }
-(function initSheetDrag() {       // tarik handle ke bawah = ciutkan, ke atas / ketuk = buka
+(function initSheetDrag() {       // tarik handle ke bawah = turun satu tingkat, ke atas = naik; ketuk = bergantian
   const sh = $("orderSheet"); let y0 = null, moved = false;
   sh.addEventListener("pointerdown", (e) => {
     const g = e.target.closest(".grab"); if (!g) return; y0 = e.clientY; moved = false;
@@ -853,35 +901,40 @@ function setSheetMin(v) {
   });
   sh.addEventListener("pointermove", (e) => {
     if (y0 == null) return; const dy = e.clientY - y0;
-    if (Math.abs(dy) > 22) { moved = true; y0 = e.clientY; setSheetMin(dy > 0); }
+    if (Math.abs(dy) > 22) {
+      moved = true; y0 = e.clientY;
+      const i = SHEET_ORDER.indexOf(S.sheetState || "full");
+      setSheetState(SHEET_ORDER[Math.max(0, Math.min(2, i + (dy > 0 ? 1 : -1)))]);
+      if (S.sheetState === "hid") y0 = null;
+    }
   });
-  sh.addEventListener("pointerup", (e) => { if (y0 != null && !moved && e.target.closest(".grab")) setSheetMin(!S.sheetMin); y0 = null; });
+  sh.addEventListener("pointerup", (e) => { if (y0 != null && !moved && e.target.closest(".grab")) setSheetState(S.sheetState === "min" ? "full" : "min"); y0 = null; });
   sh.addEventListener("pointercancel", () => { y0 = null; });
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => relayoutRecenter()); ro.observe(sh); ro.observe($("idleSheet")); }
 })();
 function renderOrder() {
   const o = S.order; if (!o) return;
   const st = STEP[o.status], c = S.orderCustomer || {};
   $("idleSheet").classList.add("hidden");
-  const sh = $("orderSheet"); sh.classList.remove("hidden"); sh.classList.toggle("min", !!S.sheetMin);
+  const sh = $("orderSheet"); sh.classList.remove("hidden"); sh.classList.toggle("min", S.sheetState === "min"); sh.classList.toggle("hid", S.sheetState === "hid");
+  $("btnNavToggle").classList.remove("hidden"); $("btnNavToggle").classList.toggle("on", NAV.on);
+  $("sheetTab").classList.toggle("hidden", !(S.sheetState === "hid"));
   const target = targetOf(o);
   const ext = `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=${o.service === "motor" ? "two-wheeler" : "driving"}`;
   const com = Math.round((o.fare * (S.settings.commission_pct ?? 10)) / 100);
   const changed = o.orig_fare != null && Number(o.orig_fare) !== Number(o.fare);
   sh.innerHTML = `
-    <div class="grab" aria-label="Tarik untuk menciutkan / membuka"><i></i></div>
-    <div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <h3 style="margin:0">Order #${esc(o.id.slice(0, 8))}</h3>
-      <span style="flex:none;display:flex;gap:6px;align-items:center"><span class="pill ${st.pill[0]}">${st.pill[1]}</span><button class="btn blue navMini" onclick="toggleNav()">${NAV.on ? "⏹" : "🧭"}</button></span>
-    </div>
-    <div class="row" style="margin-bottom:4px">
+    <div class="grab" aria-label="Tarik ke bawah untuk menurunkan"><i></i></div>
+    <div class="row" style="margin-bottom:2px">
       <div><b>${esc(c.full_name || "Pelanggan")}</b><div class="navInfo" id="navKm">${esc(NAV.info || "Mencari rute…")}</div></div>
-      <div style="text-align:right;flex:none"><div class="big" style="font-size:22px">${rp(o.fare)}</div><div style="font-size:11px;color:var(--muted)">${o.payment === "cash" ? "Tunai" : esc(o.payment)}</div></div>
+      <div style="text-align:right;flex:none"><div class="big" style="font-size:22px">${rp(o.fare)}</div><span class="pill ${st.pill[0]}">${st.pill[1]}</span></div>
     </div>
     ${changed ? `<div class="chg">Tarif disesuaikan karena titik antar berubah (awal ${rp(o.orig_fare)}).</div>` : ""}
     <div id="geoBox"></div>
     <button class="btn" id="btnStep" onclick="advanceOrder()">${st.btn}</button>
     <div class="more">
-      <div style="font-size:12px;color:var(--muted);margin:10px 0 2px">${esc(c.phone || "-")}</div>
+      <h3 style="margin:10px 0 2px;font-size:15px">Order #${esc(o.id.slice(0, 8))} · ${o.payment === "cash" ? "Tunai" : esc(o.payment)}</h3>
+      <div style="font-size:12px;color:var(--muted);margin:0 0 2px">${esc(c.phone || "-")}</div>
       <div class="route">
         <div class="pt"><small>JEMPUT</small><span>${esc(o.pickup_address || o.pickup_lat.toFixed(5) + ", " + o.pickup_lng.toFixed(5))}</span></div>
         <div class="pt d"><small>TUJUAN</small><span>${esc(o.dest_address || o.dest_lat.toFixed(5) + ", " + o.dest_lng.toFixed(5))}</span></div>
@@ -1283,7 +1336,7 @@ function updateGeo() {
   const rad = S.settings.complete_radius_m ?? 150, bt = $("btnStep");
   if (!S.pos) { b.innerHTML = '<div class="geo bad">📡 Menunggu sinyal GPS…</div>'; if (bt) { bt.disabled = true; } return; }
   const m = Math.round(distKm(S.pos.lat, S.pos.lng, o.dest_lat, o.dest_lng) * 1000), ok = m <= rad;
-  b.innerHTML = `<div class="geo ${ok ? "ok" : "bad"}">${ok ? "✅ Anda sudah di titik antar" : "📍 " + (m >= 1000 ? (m / 1000).toFixed(1) + " km" : m + " m") + " lagi ke titik antar (maks. " + rad + " m agar bisa menyelesaikan)"}</div>`;
+  b.innerHTML = `<div class="geo ${ok ? "ok" : "bad"}">${ok ? "✅ Anda sudah di titik antar" : "📍 " + (m >= 1000 ? (m / 1000).toFixed(1) + " km" : m + " m") + " lagi ke titik antar<span class=\"geoNote\"> (maks. " + rad + " m agar bisa menyelesaikan)</span>"}</div>`;
   if (bt) bt.disabled = !ok;
 }
 async function reverseGeo(lat, lng) {

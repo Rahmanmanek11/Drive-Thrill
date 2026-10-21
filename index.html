@@ -65,7 +65,32 @@ nav.bottom button.on{color:var(--g)}
 .stat{flex:1;background:#fff;border-radius:12px;padding:8px 10px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
 .stat small{display:block;color:var(--muted);font-size:11px}
 .stat b{font-size:15px}
-.sheet{position:absolute;left:0;right:0;bottom:0;z-index:450;background:#fff;border-radius:20px 20px 0 0;padding:14px 16px 16px;box-shadow:0 -6px 24px rgba(0,0,0,.2);max-height:75%;overflow:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:450;background:#fff;border-radius:20px 20px 0 0;padding:14px 16px 16px;box-shadow:0 -6px 24px rgba(0,0,0,.2);max-height:60%;overflow:auto}
+/* handle: tarik ke bawah = ciutkan, tarik ke atas / ketuk = buka */
+.grab{touch-action:none;cursor:grab;padding:8px 0 14px;margin:-14px 0 0;user-select:none;-webkit-user-select:none}
+.grab i{display:block;width:46px;height:5px;border-radius:3px;background:#cbd5e1;margin:0 auto}
+.sheet.min{padding-bottom:12px}
+.sheet.min .more{display:none}
+.navMini{display:none;flex:none;width:auto;margin:0;padding:8px 12px;font-size:13px}
+.sheet.min .navMini{display:inline-block}
+.navInfo{font-size:13px;color:var(--muted);font-weight:600;min-height:18px}
+.chg{background:#fef3c7;color:#92400e;border-radius:10px;padding:6px 10px;font-size:12px;font-weight:600;margin:6px 0}
+.ext{display:block;text-align:center;font-size:12px;color:var(--muted);margin-top:10px;text-decoration:underline}
+
+/* ---------- NAVIGASI DALAM APLIKASI ---------- */
+#navBar{position:absolute;left:10px;right:10px;top:10px;z-index:430;background:#0f172a;color:#fff;border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:12px;box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#navBar .ic{flex:none;width:52px;height:52px;border-radius:12px;background:#16a34a;display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800}
+#navBar .tx{flex:1;min-width:0}
+#navBar .tx b{display:block;font-size:22px;line-height:1.1}
+#navBar .tx span{display:block;font-size:14px;opacity:.92;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+#navBar button{flex:none;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:17px;padding:0}
+#navEta{position:absolute;left:50%;transform:translateX(-50%);top:84px;z-index:420;background:#fff;border-radius:20px;padding:5px 14px;font-size:13px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.25);white-space:nowrap}
+#btnRecenter{position:absolute;right:12px;z-index:420;width:46px;height:46px;border-radius:50%;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.3);font-size:22px;color:var(--blue);display:flex;align-items:center;justify-content:center;bottom:150px}
+.me-wrap{position:relative;width:44px;height:44px}
+.me-wrap .lf-me{position:absolute;left:13px;top:13px;width:18px;height:18px}
+.me-wrap .hd{display:none;position:absolute;inset:0;transition:transform .3s linear}
+.me-wrap .hd::after{content:"";position:absolute;left:14px;top:-4px;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:16px solid #2563eb;filter:drop-shadow(0 1px 2px rgba(0,0,0,.4))}
+body.navmode .me-wrap .hd{display:block}
 .sheet h3{margin:0 0 8px;font-size:16px}
 .pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700}
 .pill.g{background:#dcfce7;color:#166534}.pill.a{background:#fef3c7;color:#92400e}.pill.b{background:#dbeafe;color:#1e40af}.pill.r{background:#fee2e2;color:#991b1b}.pill.s{background:#e2e8f0;color:#334155}
@@ -198,7 +223,15 @@ nav.bottom button.on{color:var(--g)}
     <!-- BERANDA -->
     <div class="page on" id="pg-home">
       <div id="map"></div>
-      <div class="stats">
+      <div id="navBar" class="hidden">
+        <div class="ic" id="nbIcon">↑</div>
+        <div class="tx"><b id="nbDist">-</b><span id="nbInstr">Mencari rute…</span></div>
+        <button id="nbVoice" onclick="toggleVoice()" aria-label="Suara">🔇</button>
+        <button onclick="exitNav()" aria-label="Hentikan navigasi">✕</button>
+      </div>
+      <div id="navEta" class="hidden"></div>
+      <button id="btnRecenter" class="hidden" onclick="recenterNav()" aria-label="Pusatkan ke posisi saya">◎</button>
+      <div class="stats" id="stats">
         <div class="stat"><small>Pendapatan hari ini</small><b id="stEarn">Rp 0</b></div>
         <div class="stat"><small>Order hari ini</small><b id="stTrips">0</b></div>
         <div class="stat"><small>Saldo deposit</small><b id="stBal">Rp 0</b></div>
@@ -431,6 +464,8 @@ function initMap() {
   S.map = L.map("map", { zoomControl: false, attributionControl: false }).setView(CFG.DEFAULT_CENTER, 14);
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(S.map);
   L.control.attribution({ prefix: false }).addAttribution("© OpenStreetMap").addTo(S.map);
+  // driver menggeser peta sendiri → berhenti mengikuti sampai tombol ◎ ditekan
+  S.map.on("dragstart", () => { if (NAV.on && NAV.follow) { NAV.follow = false; $("btnRecenter").classList.remove("hidden"); relayoutRecenter(); } });
 }
 function startGeo() {
   if (!navigator.geolocation) return toast("Perangkat tidak mendukung GPS");
@@ -439,14 +474,24 @@ function startGeo() {
     toast(e.code === 1 ? "Izin lokasi ditolak. Aktifkan GPS untuk menerima order." : "GPS belum siap…");
   }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
 }
+function bearing(a, b) {
+  const r = Math.PI / 180, y = Math.sin((b.lng - a.lng) * r) * Math.cos(b.lat * r);
+  const x = Math.cos(a.lat * r) * Math.sin(b.lat * r) - Math.sin(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lng - a.lng) * r);
+  return (Math.atan2(y, x) / r + 360) % 360;
+}
 function onPos(p) {
-  S.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy };
-  if (S.order) updateGeo();
+  const prev = S.pos;
+  S.pos = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, hdg: prev ? prev.hdg : null };
+  // arah hadap: dari gerakan terakhir (≥5 m), atau dari sensor GPS bila ada
+  if (prev && distKm(prev.lat, prev.lng, S.pos.lat, S.pos.lng) * 1000 >= 5) S.pos.hdg = bearing(prev, S.pos);
+  else if (typeof p.coords.heading === "number" && !isNaN(p.coords.heading) && (p.coords.speed || 0) > 1) S.pos.hdg = p.coords.heading;
   const ll = [S.pos.lat, S.pos.lng];
   if (!S.meMarker) {
-    S.meMarker = L.marker(ll, { icon: L.divIcon({ className: "", html: '<div class="lf-me" style="width:18px;height:18px"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }) }).addTo(S.map);
+    S.meMarker = L.marker(ll, { zIndexOffset: 900, icon: L.divIcon({ className: "", html: '<div class="me-wrap"><div class="hd"></div><div class="lf-me"></div></div>', iconSize: [44, 44], iconAnchor: [22, 22] }) }).addTo(S.map);
     S.map.setView(ll, 15);
   } else S.meMarker.setLatLng(ll);
+  if (S.pos.hdg != null) { const hd = S.meMarker.getElement() && S.meMarker.getElement().querySelector(".hd"); if (hd) hd.style.transform = "rotate(" + Math.round(S.pos.hdg) + "deg)"; }
+  if (S.order) { updateGeo(); navTick(); }
   // kirim lokasi ke server tiap ≥5 detik saat online/sibuk
   if (S.driver && S.driver.status !== "offline" && Date.now() - S.lastSend > 1000) {
     S.lastSend = Date.now();
@@ -457,20 +502,218 @@ function pin(color, label) {
   return L.divIcon({ className: "", iconSize: [30, 38], iconAnchor: [15, 36],
     html: `<div style="background:${color};color:#fff;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"><b style="transform:rotate(45deg);font-size:13px">${label}</b></div>` });
 }
-function drawOrderOnMap(o) {
-  clearOrderMap();
-  if (!o) return;
-  S.pickMarker = L.marker([o.pickup_lat, o.pickup_lng], { icon: pin("#16a34a", "J") }).addTo(S.map);
-  S.destMarker = L.marker([o.dest_lat, o.dest_lng], { icon: pin("#dc2626", "T") }).addTo(S.map);
-  const target = o.status === "ongoing" ? [o.dest_lat, o.dest_lng] : [o.pickup_lat, o.pickup_lng];
-  const pts = [[o.pickup_lat, o.pickup_lng], [o.dest_lat, o.dest_lng]];
-  S.routeLine = L.polyline(pts, { color: "#2563eb", weight: 4, dashArray: "8 8" }).addTo(S.map);
+/* =====================================================================
+   NAVIGASI & RUTE REALTIME DI DALAM APLIKASI (tanpa keluar ke aplikasi peta)
+   - Rute selalu tergambar saat ada order; garis memendek mengikuti posisi driver.
+   - Keluar jalur → rute dihitung ulang otomatis.
+   - Tombol "Navigasi" (opsional) = peta mengikuti driver + petunjuk belokan + suara.
+   ===================================================================== */
+const NAV = { on: false, follow: true, route: null, key: "", fetching: false, lastFetch: 0, off: 0, seg: 0, voice: false, spoken: {}, info: "", tripKey: "", lastTrack: 0, fitKey: "" };
+try { NAV.voice = localStorage.getItem("navVoice") === "1"; } catch (e) {}
+
+const targetOf = (o) => (o.status === "ongoing" ? { lat: o.dest_lat, lng: o.dest_lng } : { lat: o.pickup_lat, lng: o.pickup_lng });
+const fmtDist = (m) => (m < 20 ? "Sekarang" : m < 1000 ? Math.round(m / 10) * 10 + " m" : (m / 1000).toFixed(1).replace(".", ",") + " km");
+const sheetH = () => { const s = $("orderSheet"); return s && !s.classList.contains("hidden") ? s.offsetHeight : 0; };
+
+async function osrmRoute(a, b, steps) {
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 7000);
+  try {
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson&steps=${steps ? "true" : "false"}`, { signal: ac.signal });
+    const j = await r.json(), rt = j.routes && j.routes[0];
+    if (!rt) return null;
+    return { pts: rt.geometry.coordinates.map((c) => [c[1], c[0]]), dist: rt.distance, dur: rt.duration, steps: steps ? rt.legs.flatMap((l) => l.steps) : [] };
+  } catch (e) { return null; } finally { clearTimeout(tm); }
+}
+function prepRoute(raw, a, b) {
+  let pts, dist, dur, steps = [], fallback = false;
+  if (raw && raw.pts.length > 1) { pts = raw.pts; dist = raw.dist; dur = raw.dur; steps = raw.steps; }
+  else { pts = [[a.lat, a.lng], [b.lat, b.lng]]; dist = distKm(a.lat, a.lng, b.lat, b.lng) * 1300; dur = dist / (25 / 3.6); fallback = true; }
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + distKm(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]) * 1000);
+  const total = cum[cum.length - 1] || 1;
+  // petakan tiap belokan ke titik (vertex) terdekat di garis rute
+  let from = 0;
+  const st = steps.map((s) => {
+    const loc = s.maneuver.location; let bi = from, bd = Infinity;
+    for (let i = from; i < pts.length; i++) { const d = distKm(pts[i][0], pts[i][1], loc[1], loc[0]) * 1000; if (d < bd) { bd = d; bi = i; } }
+    from = bi;
+    return { i: bi, type: s.maneuver.type, modifier: s.maneuver.modifier, exit: s.maneuver.exit, name: s.name || "" };
+  });
+  return { pts, cum, total, dist, dur, steps: st, fallback };
+}
+function segProj(a, b, p) {
+  const kx = 111320 * Math.cos((p.lat * Math.PI) / 180), ky = 110540;
+  const ax = (a[1] - p.lng) * kx, ay = (a[0] - p.lat) * ky, bx = (b[1] - p.lng) * kx, by = (b[0] - p.lat) * ky;
+  const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+  let t = L2 ? -(ax * dx + ay * dy) / L2 : 0; t = Math.max(0, Math.min(1, t));
+  return { t, d: Math.hypot(ax + t * dx, ay + t * dy), lat: a[0] + (b[0] - a[0]) * t, lng: a[1] + (b[1] - a[1]) * t };
+}
+function snapToRoute(R, p) {
+  const n = R.pts.length;
+  const scan = (lo, hi) => { let best = null; for (let i = lo; i <= hi; i++) { const s = segProj(R.pts[i], R.pts[i + 1], p); if (!best || s.d < best.d) best = { ...s, seg: i }; } return best; };
+  let best = n > 1 ? scan(Math.max(0, NAV.seg - 3), Math.min(n - 2, NAV.seg + 80)) : null;
+  if (n > 1 && best.d > 80) { const all = scan(0, n - 2); if (all.d < best.d) best = all; }   // rute berputar / loncat
+  if (!best) best = { seg: 0, t: 0, d: 0, lat: R.pts[0][0], lng: R.pts[0][1] };
+  const along = R.cum[best.seg] + best.t * (R.cum[best.seg + 1] - R.cum[best.seg] || 0);
+  return { ...best, along, remain: Math.max(0, R.total - along) };
+}
+async function ensureRoute(force) {
+  const o = S.order; if (!o || !S.pos || NAV.fetching) return;
+  const now = Date.now(); if (!force && now - NAV.lastFetch < 6000) return;
+  NAV.fetching = true; NAV.lastFetch = now;
+  const a = { lat: S.pos.lat, lng: S.pos.lng }, b = targetOf(o), key = NAV.key;
+  const raw = await osrmRoute(a, b, true);
+  NAV.fetching = false;
+  if (NAV.key !== key || !S.order) return;            // order / tujuan berubah selagi menunggu
+  NAV.route = prepRoute(raw, a, b); NAV.seg = 0; NAV.off = 0; NAV.spoken = {};
+  drawRoute(null); navTick(); fitOrderView(true);
+}
+function drawRoute(rem) {
+  const R = NAV.route; if (!R || !S.map) return;
+  const ll = rem || R.pts;
+  if (!S.routeLine) {
+    S.routeCase = L.polyline(ll, { color: "#1e3a8a", weight: 10, opacity: .85, lineCap: "round", lineJoin: "round" }).addTo(S.map);
+    S.routeLine = L.polyline(ll, { color: "#3b82f6", weight: 6, opacity: 1, lineCap: "round", lineJoin: "round" }).addTo(S.map);
+  } else { S.routeCase.setLatLngs(ll); S.routeLine.setLatLngs(ll); }
+  S.routeLine.setStyle({ dashArray: R.fallback ? "8 8" : null, color: R.fallback ? "#f59e0b" : "#3b82f6" });
+}
+async function drawTrip(o) {      // rute penumpang (jemput→antar) tampil samar selama menuju jemputan
+  const key = o.id + "|" + o.dest_lat + "," + o.dest_lng + "|" + (o.status === "ongoing");
+  if (NAV.tripKey === key) return; NAV.tripKey = key;
+  if (S.tripLine) { S.map.removeLayer(S.tripLine); S.tripLine = null; }
+  if (o.status === "ongoing") return;
+  const raw = await osrmRoute({ lat: o.pickup_lat, lng: o.pickup_lng }, { lat: o.dest_lat, lng: o.dest_lng }, false);
+  if (NAV.tripKey !== key || !S.order) return;
+  const pts = raw ? raw.pts : [[o.pickup_lat, o.pickup_lng], [o.dest_lat, o.dest_lng]];
+  S.tripLine = L.polyline(pts, { color: "#64748b", weight: 5, opacity: .55, dashArray: "2 9", lineCap: "round" }).addTo(S.map);
+}
+
+/* dipanggil setiap ada titik GPS baru */
+function navTick() {
+  const o = S.order; if (!o || !S.pos || !S.map) return;
+  const t = targetOf(o), key = o.id + "|" + (o.status === "ongoing" ? "d" : "p") + "|" + (+t.lat).toFixed(5) + "," + (+t.lng).toFixed(5);
+  if (NAV.key !== key) { NAV.key = key; NAV.route = null; NAV.seg = 0; NAV.off = 0; NAV.spoken = {}; ensureRoute(true); return; }
+  const R = NAV.route; if (!R) return;
+  const sn = snapToRoute(R, S.pos); NAV.seg = sn.seg;
+  // garis rute memendek mengikuti posisi
+  drawRoute([[sn.lat, sn.lng]].concat(R.pts.slice(sn.seg + 1)));
+  // keluar jalur → hitung ulang
+  if (sn.d > Math.max(45, S.pos.acc || 0)) { if (++NAV.off >= 3) ensureRoute(false); } else NAV.off = 0;
+  if (R.fallback && Date.now() - NAV.lastFetch > 15000) ensureRoute(true);
+  // sisa jarak & waktu
+  const spd = R.fallback ? 25 / 3.6 : R.dist / Math.max(1, R.dur);
+  const eta = sn.remain / Math.max(2, spd);
+  const mins = Math.max(1, Math.round(eta / 60)), clock = new Date(Date.now() + eta * 1000).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  const label = o.status === "ongoing" ? "ke tujuan" : "ke lokasi jemput";
+  NAV.info = fmtDist(sn.remain) + " " + label + " · ± " + mins + " mnt" + (R.fallback ? " (garis lurus)" : "");
+  const el = $("navKm"); if (el) el.textContent = NAV.info;
+  // belokan berikutnya
+  const nx = R.steps.find((s) => s.i > sn.seg) || R.steps[R.steps.length - 1];
+  if (NAV.on) {
+    const toNext = nx ? Math.max(0, R.cum[nx.i] - sn.along) : sn.remain, inf = stepInfo(nx, o.status !== "ongoing");
+    $("nbIcon").textContent = inf.icon; $("nbDist").textContent = fmtDist(toNext); $("nbInstr").textContent = inf.text;
+    $("navEta").textContent = fmtDist(sn.remain) + " · " + mins + " mnt · tiba " + clock;
+    if (nx) {
+      if (toNext <= 200 && toNext > 60 && !NAV.spoken[nx.i + "a"]) { NAV.spoken[nx.i + "a"] = 1; speak("Dalam " + Math.round(toNext / 10) * 10 + " meter, " + inf.text); }
+      if (toNext <= 60 && !NAV.spoken[nx.i + "b"]) { NAV.spoken[nx.i + "b"] = 1; speak(inf.text); }
+    }
+    if (NAV.follow) followDriver(false);
+  }
+}
+const DIRID = { left: "kiri", right: "kanan", "slight left": "serong kiri", "slight right": "serong kanan", "sharp left": "tajam ke kiri", "sharp right": "tajam ke kanan", straight: "lurus", uturn: "putar balik" };
+const ARROW = { left: "↰", right: "↱", "slight left": "↖", "slight right": "↗", "sharp left": "↩", "sharp right": "↪", straight: "↑", uturn: "↶" };
+function stepInfo(s, toPickup) {
+  if (!s) return { icon: "↑", text: "Ikuti rute" };
+  const t = s.type, m = s.modifier, n = s.name ? " ke " + s.name : "", dir = DIRID[m] || "", ic = ARROW[m] || "↑";
+  if (t === "arrive") return { icon: "🏁", text: toPickup ? "Anda tiba di titik jemput" : "Anda tiba di titik antar" };
+  if (t === "depart") return { icon: "↑", text: "Mulai berjalan" + (s.name ? " di " + s.name : "") };
+  if (t === "roundabout" || t === "rotary" || t === "roundabout turn" || t === "exit roundabout" || t === "exit rotary") return { icon: "⟳", text: "Masuk bundaran, ambil jalan keluar ke-" + (s.exit || 1) + n };
+  if (m === "uturn") return { icon: "↶", text: "Putar balik" };
+  if (t === "merge") return { icon: ic, text: "Gabung" + (dir && dir !== "lurus" ? " ke " + dir : "") + n };
+  if (t === "fork") return { icon: ic, text: "Ambil percabangan " + dir + n };
+  if (t === "end of road") return { icon: ic, text: "Di ujung jalan belok " + dir + n };
+  if (t === "on ramp" || t === "off ramp") return { icon: ic, text: "Ambil jalur " + dir + n };
+  return { icon: ic, text: (m && m !== "straight" ? "Belok " + dir : "Lanjut lurus") + n };
+}
+function speak(text) {
+  if (!NAV.voice || !("speechSynthesis" in window)) return;
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = "id-ID"; u.rate = 1; speechSynthesis.speak(u); } catch (e) {}
+}
+function toggleVoice() {
+  NAV.voice = !NAV.voice; try { localStorage.setItem("navVoice", NAV.voice ? "1" : "0"); } catch (e) {}
+  $("nbVoice").textContent = NAV.voice ? "🔊" : "🔇";
+  if (NAV.voice) speak("Suara navigasi aktif"); else try { speechSynthesis.cancel(); } catch (e) {}
+}
+
+/* ---- kamera peta ---- */
+function visibleBox() {       // area peta yang tidak tertutup banner / kartu atas dan sheet bawah
+  const top = NAV.on ? 128 : 80, bottom = sheetH() + 16;
+  return { top, bottom };
+}
+function followDriver(first) {
+  if (!S.pos || !S.map) return;
+  const size = S.map.getSize(), vb = visibleBox(), z = first ? 17 : S.map.getZoom();
+  const targetY = vb.top + Math.max(60, size.y - vb.top - vb.bottom) * 0.6;
+  const p = S.map.project([S.pos.lat, S.pos.lng], z).add([0, size.y / 2 - targetY]);   // posisi driver di sepertiga bawah area yang terlihat
+  S.map.setView(S.map.unproject(p, z), z, { animate: !first, duration: 0.9, easeLinearity: 0.5, noMoveStart: true });
+}
+function fitOrderView(force) {
+  const o = S.order; if (!o || !S.map) return;
+  if (NAV.on && NAV.follow) return followDriver(false);
+  if (NAV.on && !NAV.follow && !force) return;
+  const R = NAV.route, pts = [];
+  if (R) pts.push(...R.pts.slice(NAV.seg)); else pts.push([o.pickup_lat, o.pickup_lng], [o.dest_lat, o.dest_lng]);
   if (S.pos) pts.push([S.pos.lat, S.pos.lng]);
-  S.map.fitBounds(L.latLngBounds(pts), { padding: [50, 50], maxZoom: 16 });
+  const vb = visibleBox();
+  S.map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [36, vb.top], paddingBottomRight: [36, vb.bottom], maxZoom: 17, animate: true });
+}
+function relayoutRecenter() { $("btnRecenter").style.bottom = (sheetH() + 16) + "px"; }
+function relayoutMap() { requestAnimationFrame(() => { relayoutRecenter(); if (S.order) fitOrderView(true); }); }
+
+/* ---- mode navigasi (opsional) ---- */
+function startNav() {
+  if (!S.order || NAV.on) return;
+  NAV.on = true; NAV.follow = true; document.body.classList.add("navmode");
+  $("navBar").classList.remove("hidden"); $("navEta").classList.remove("hidden"); $("stats").classList.add("hidden"); $("btnRecenter").classList.add("hidden");
+  $("nbVoice").textContent = NAV.voice ? "🔊" : "🔇";
+  $("nbInstr").textContent = NAV.route ? "Mengikuti rute…" : "Mencari rute…";
+  S.sheetMin = true; $("orderSheet").classList.add("min"); renderOrder();
+  requestAnimationFrame(() => { relayoutRecenter(); followDriver(true); navTick(); speak("Navigasi dimulai"); });
+}
+function exitNav() {
+  if (!NAV.on) return;
+  NAV.on = false; NAV.follow = true; document.body.classList.remove("navmode");
+  $("navBar").classList.add("hidden"); $("navEta").classList.add("hidden"); $("stats").classList.remove("hidden"); $("btnRecenter").classList.add("hidden");
+  try { speechSynthesis.cancel(); } catch (e) {}
+  if (S.order) { renderOrder(); relayoutMap(); }
+}
+function toggleNav() { NAV.on ? exitNav() : startNav(); }
+function recenterNav() { NAV.follow = true; $("btnRecenter").classList.add("hidden"); followDriver(false); }
+
+/* ---- penanda & kamera saat order berubah ---- */
+function pin(color, label) {
+  return L.divIcon({ className: "", iconSize: [30, 38], iconAnchor: [15, 36],
+    html: `<div style="background:${color};color:#fff;width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)"><b style="transform:rotate(45deg);font-size:13px">${label}</b></div>` });
+}
+function syncOrderMap(refit) {
+  const o = S.order; if (!o) return clearOrderMap();
+  const pk = [o.pickup_lat, o.pickup_lng], ds = [o.dest_lat, o.dest_lng];
+  if (!S.pickMarker) S.pickMarker = L.marker(pk, { icon: pin("#16a34a", "J") }).addTo(S.map); else S.pickMarker.setLatLng(pk);
+  if (!S.destMarker) S.destMarker = L.marker(ds, { icon: pin("#dc2626", "T") }).addTo(S.map); else S.destMarker.setLatLng(ds);
+  drawTrip(o); navTick();
+  if (refit) { relayoutRecenter(); requestAnimationFrame(() => fitOrderView(true)); }
 }
 function clearOrderMap() {
-  [S.pickMarker, S.destMarker, S.routeLine].forEach((l) => l && S.map.removeLayer(l));
-  S.pickMarker = S.destMarker = S.routeLine = null;
+  [S.pickMarker, S.destMarker, S.routeLine, S.routeCase, S.tripLine].forEach((l) => l && S.map.removeLayer(l));
+  S.pickMarker = S.destMarker = S.routeLine = S.routeCase = S.tripLine = null;
+  NAV.route = null; NAV.key = ""; NAV.tripKey = ""; NAV.info = ""; NAV.fetching = false; NAV.seg = 0;
+  if (NAV.on) exitNav();
+}
+/* rekam jejak GPS selama order berjalan (bukti untuk admin bila ada sengketa) */
+function trackLog() {
+  const o = S.order; if (!o || !S.pos || Date.now() - NAV.lastTrack < 9000) return;
+  NAV.lastTrack = Date.now();
+  Promise.resolve(sb.rpc("driver_log_track", { p_order: o.id, p_lat: S.pos.lat, p_lng: S.pos.lng, p_acc: S.pos.acc || null })).catch(() => {});
 }
 function distKm(a1, o1, a2, o2) {
   const R = 6371, r = Math.PI / 180, dA = (a2 - a1) * r, dO = (o2 - o1) * r;
@@ -493,6 +736,7 @@ function startLoops() {
   S.loops.push(setInterval(pollOffers, 2000));                       // cadangan bila realtime terputus
   S.loops.push(setInterval(() => sb.rpc("expire_offers"), 15000));   // tutup tawaran kadaluwarsa & cari driver lain
   S.loops.push(setInterval(() => { if (S.driver && S.driver.status !== "offline") reloadDriver(); }, 30000));
+  S.loops.push(setInterval(trackLog, 10000));                        // rekam jejak GPS order berjalan
   S.loops.push(setInterval(() => { loadDocs().then(() => S.driver && refreshHeader()); checkSanctions(); }, 30000));
   S.loops.push(setInterval(() => {                                   // heartbeat lokasi tiap 1 detik
     if (S.hbBusy || !S.driver || S.driver.status === "offline" || !S.pos) return;
@@ -585,44 +829,74 @@ async function restoreActiveOrder() {
     }
     await reloadDriver(); return;
   }
-  const prevStatus = S.order && S.order.status;
+  const prev = S.order, isNew = !prev || prev.id !== o.id;
   S.order = o;
-  const { data: c } = await sb.from("profiles").select("full_name,phone").eq("id", o.customer_id).maybeSingle();
-  S.orderCustomer = c;
-  hideOffer(); renderOrder(); if (prevStatus !== o.status) drawOrderOnMap(o);
+  if (isNew) { S.sheetMin = false; $("orderSheet").classList.remove("min"); NAV.lastTrack = 0; }
+  if (isNew || !S.orderCustomer) {
+    const { data: c } = await sb.from("profiles").select("full_name,phone").eq("id", o.customer_id).maybeSingle();
+    S.orderCustomer = c;
+  }
+  hideOffer(); renderOrder();
+  const moved = prev && !isNew && (prev.dest_lat !== o.dest_lat || prev.dest_lng !== o.dest_lng);
+  syncOrderMap(isNew || prev.status !== o.status || moved);
+  trackLog();
   await reloadDriver();
 }
+function setSheetMin(v) {
+  S.sheetMin = !!v; $("orderSheet").classList.toggle("min", S.sheetMin); relayoutMap();
+}
+(function initSheetDrag() {       // tarik handle ke bawah = ciutkan, ke atas / ketuk = buka
+  const sh = $("orderSheet"); let y0 = null, moved = false;
+  sh.addEventListener("pointerdown", (e) => {
+    const g = e.target.closest(".grab"); if (!g) return; y0 = e.clientY; moved = false;
+    try { g.setPointerCapture(e.pointerId); } catch (_) {}      // tetap menerima gerakan jari walau keluar dari area handle
+  });
+  sh.addEventListener("pointermove", (e) => {
+    if (y0 == null) return; const dy = e.clientY - y0;
+    if (Math.abs(dy) > 22) { moved = true; y0 = e.clientY; setSheetMin(dy > 0); }
+  });
+  sh.addEventListener("pointerup", (e) => { if (y0 != null && !moved && e.target.closest(".grab")) setSheetMin(!S.sheetMin); y0 = null; });
+  sh.addEventListener("pointercancel", () => { y0 = null; });
+})();
 function renderOrder() {
   const o = S.order; if (!o) return;
   const st = STEP[o.status], c = S.orderCustomer || {};
   $("idleSheet").classList.add("hidden");
-  const sh = $("orderSheet"); sh.classList.remove("hidden");
-  const target = o.status === "ongoing" ? { lat: o.dest_lat, lng: o.dest_lng } : { lat: o.pickup_lat, lng: o.pickup_lng };
-  const nav = `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=${o.service === "motor" ? "two-wheeler" : "driving"}`;
+  const sh = $("orderSheet"); sh.classList.remove("hidden"); sh.classList.toggle("min", !!S.sheetMin);
+  const target = targetOf(o);
+  const ext = `https://www.google.com/maps/dir/?api=1&destination=${target.lat},${target.lng}&travelmode=${o.service === "motor" ? "two-wheeler" : "driving"}`;
   const com = Math.round((o.fare * (S.settings.commission_pct ?? 10)) / 100);
+  const changed = o.orig_fare != null && Number(o.orig_fare) !== Number(o.fare);
   sh.innerHTML = `
+    <div class="grab" aria-label="Tarik untuk menciutkan / membuka"><i></i></div>
     <div class="row" style="justify-content:space-between;margin-bottom:6px">
-      <h3 style="margin:0">Order #${esc(o.id.slice(0, 8))}</h3><span class="pill ${st.pill[0]}">${st.pill[1]}</span>
+      <h3 style="margin:0">Order #${esc(o.id.slice(0, 8))}</h3>
+      <span style="flex:none;display:flex;gap:6px;align-items:center"><span class="pill ${st.pill[0]}">${st.pill[1]}</span><button class="btn blue navMini" onclick="toggleNav()">${NAV.on ? "⏹" : "🧭"}</button></span>
     </div>
-    <div class="row" style="margin-bottom:6px">
-      <div><b>${esc(c.full_name || "Pelanggan")}</b><div style="font-size:12px;color:var(--muted)">${esc(c.phone || "-")}</div></div>
-      <div style="text-align:right;flex:none"><div class="big" style="font-size:22px">${rp(o.fare)}</div><div style="font-size:11px;color:var(--muted)">${o.payment === "cash" ? "Tunai — terima dari pelanggan" : esc(o.payment)}</div></div>
+    <div class="row" style="margin-bottom:4px">
+      <div><b>${esc(c.full_name || "Pelanggan")}</b><div class="navInfo" id="navKm">${esc(NAV.info || "Mencari rute…")}</div></div>
+      <div style="text-align:right;flex:none"><div class="big" style="font-size:22px">${rp(o.fare)}</div><div style="font-size:11px;color:var(--muted)">${o.payment === "cash" ? "Tunai" : esc(o.payment)}</div></div>
     </div>
-    <div class="route">
-      <div class="pt"><small>JEMPUT</small><span>${esc(o.pickup_address || o.pickup_lat.toFixed(5) + ", " + o.pickup_lng.toFixed(5))}</span></div>
-      <div class="pt d"><small>TUJUAN</small><span>${esc(o.dest_address || o.dest_lat.toFixed(5) + ", " + o.dest_lng.toFixed(5))}</span></div>
-    </div>
-    <div class="kv"><span>Jarak</span><b>${Number(o.distance_km).toFixed(1)} km</b></div>
+    ${changed ? `<div class="chg">Tarif disesuaikan karena titik antar berubah (awal ${rp(o.orig_fare)}).</div>` : ""}
     <div id="geoBox"></div>
-    <div class="kv"><span>Komisi aplikasi (${S.settings.commission_pct ?? 10}%)</span><b>- ${rp(com)}</b></div>
-    <div class="row" style="margin-top:10px">
-      <a class="btn blue" style="text-align:center;text-decoration:none;margin-top:0" href="${nav}" target="_blank" rel="noopener">🧭 Navigasi</a>
-      ${c.phone ? `<a class="btn gray" style="text-align:center;text-decoration:none;margin-top:0" href="tel:${esc(c.phone)}">📞 Telepon</a>
-      <a class="btn gray" style="text-align:center;text-decoration:none;margin-top:0" href="https://wa.me/${esc(String(c.phone).replace(/\D/g, "").replace(/^0/, "62"))}" target="_blank" rel="noopener">💬 WA</a>` : ""}
-    </div>
     <button class="btn" id="btnStep" onclick="advanceOrder()">${st.btn}</button>
-    ${o.status === "ongoing" ? `<button class="btn gray" style="margin-top:8px" onclick="openDestChange()">📍 Ubah titik antar</button>` : ""}
-    ${o.status !== "ongoing" ? `<button class="btn red" style="margin-top:8px" onclick="cancelOrder()">Batalkan order</button>` : ""}`;
+    <div class="more">
+      <div style="font-size:12px;color:var(--muted);margin:10px 0 2px">${esc(c.phone || "-")}</div>
+      <div class="route">
+        <div class="pt"><small>JEMPUT</small><span>${esc(o.pickup_address || o.pickup_lat.toFixed(5) + ", " + o.pickup_lng.toFixed(5))}</span></div>
+        <div class="pt d"><small>TUJUAN</small><span>${esc(o.dest_address || o.dest_lat.toFixed(5) + ", " + o.dest_lng.toFixed(5))}</span></div>
+      </div>
+      <div class="kv"><span>Jarak</span><b>${Number(o.distance_km).toFixed(1)} km</b></div>
+      <div class="kv"><span>Komisi aplikasi (${S.settings.commission_pct ?? 10}%)</span><b>- ${rp(com)}</b></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn ${NAV.on ? "red" : "blue"}" style="margin-top:0" onclick="toggleNav()">${NAV.on ? "⏹ Hentikan navigasi" : "🧭 Navigasi"}</button>
+        ${c.phone ? `<a class="btn gray" style="text-align:center;text-decoration:none;margin-top:0" href="tel:${esc(c.phone)}">📞 Telepon</a>
+        <a class="btn gray" style="text-align:center;text-decoration:none;margin-top:0" href="https://wa.me/${esc(String(c.phone).replace(/\D/g, "").replace(/^0/, "62"))}" target="_blank" rel="noopener">💬 WA</a>` : ""}
+      </div>
+      ${o.status === "ongoing" ? `<button class="btn gray" style="margin-top:8px" onclick="openDestChange()">📍 Ubah titik antar</button>` : ""}
+      ${o.status !== "ongoing" ? `<button class="btn red" style="margin-top:8px" onclick="cancelOrder()">Batalkan order</button>` : ""}
+      <a class="ext" href="${ext}" target="_blank" rel="noopener">Buka di Google Maps (opsional)</a>
+    </div>`;
   updateGeo();
 }
 async function advanceOrder() {
@@ -1021,12 +1295,22 @@ async function reverseGeo(lat, lng) {
   } catch (e) {}
   return "Titik diubah driver (" + lat.toFixed(5) + ", " + lng.toFixed(5) + ")";
 }
+function estFare(o, lat, lng) {     // rumus sama dengan server: jarak garis lurus jemput→antar × 1,3
+  const base = S.settings["base_fare_" + o.service], per = S.settings["per_km_" + o.service];
+  if (base == null || per == null) return null;
+  const km = distKm(o.pickup_lat, o.pickup_lng, lat, lng) * 1.3;
+  return { km, fare: Math.max(base, Math.round((base + per * km) / 500) * 500) };
+}
 function openDestChange() {
   const o = S.order; if (!o) return;
+  const est = S.pos ? estFare(o, S.pos.lat, S.pos.lng) : null;
+  const diff = est ? est.fare - Number(o.fare) : 0;
   $("destBody").innerHTML = `<h3>Ubah titik antar</h3>
     <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Titik antar baru = <b>lokasi GPS Anda sekarang</b>. Gunakan hanya jika pelanggan benar-benar minta turun di sini atau titik di peta salah.
-    Perubahan lebih dari ${S.settings.dest_flag_m ?? 300} m dari tujuan awal akan ditinjau admin. <b>Kecurangan dikenai sanksi.</b></div>
+    <b>Tarif otomatis dihitung ulang</b> mengikuti titik antar baru (bisa naik atau turun). Semua perubahan dan jejak GPS Anda tercatat dan bisa diperiksa admin. Perubahan lebih dari ${S.settings.dest_flag_m ?? 300} m dari tujuan awal ditinjau admin. <b>Kecurangan dikenai sanksi (akun diskors, tidak bisa menerima order).</b></div>
     <div class="kv"><span>Tujuan saat ini</span><b style="text-align:right">${esc(o.dest_address || "-")}</b></div>
+    <div class="kv"><span>Tarif sekarang</span><b>${rp(o.fare)}</b></div>
+    ${est ? `<div class="kv"><span>Tarif setelah diubah (perkiraan)</span><b style="color:${diff > 0 ? "var(--red)" : diff < 0 ? "var(--g2)" : "inherit"}">${rp(est.fare)} ${diff ? "(" + (diff > 0 ? "+" : "−") + rp(Math.abs(diff)) + ")" : ""}</b></div>` : ""}
     <label style="display:block;margin-top:10px;font-size:13px;font-weight:600">Alasan</label>
     <select id="dcWhy" style="width:100%;padding:12px;border:1.5px solid var(--line);border-radius:12px;margin-top:4px">
       <option>Pelanggan minta turun di titik ini</option><option>Titik tujuan di peta salah</option>
@@ -1042,14 +1326,19 @@ async function doDestChange() {
   if (why === "Lainnya" && note.length < 5) return toast("Isi keterangan alasan");
   $("dcGo").disabled = true; $("dcGo").textContent = "Memproses…";
   try {
+    const oldFare = Number(S.order.fare);
     await sb.rpc("driver_update_location", { p_lat: S.pos.lat, p_lng: S.pos.lng });
     const addr = await reverseGeo(S.pos.lat, S.pos.lng);
     const { data, error } = await sb.rpc("driver_change_dest", { p_order: S.order.id, p_address: addr, p_reason: why + (note ? " — " + note : "") });
     if (error) throw new Error(error.message);
     if (!data.ok) throw new Error(data.msg);
     $("destModal").classList.add("hidden");
-    toast(data.flagged ? "Titik antar diubah. Perubahan ini akan ditinjau admin." : "Titik antar diubah.", 5000);
-    await restoreActiveOrder(); if (S.order) drawOrderOnMap(S.order);
+    await restoreActiveOrder();
+    if (S.order) {
+      const nf = Number(S.order.fare);
+      toast("Titik antar diubah." + (nf !== oldFare ? " Tarif baru: " + rp(nf) + " (sebelumnya " + rp(oldFare) + ")." : "") + (data.flagged ? " Perubahan ini akan ditinjau admin." : ""), 7000);
+      syncOrderMap(true);
+    }
   } catch (e) { toast("Gagal: " + e.message, 6000); $("dcGo").disabled = false; $("dcGo").textContent = "Gunakan lokasi saya sekarang"; }
 }
 
